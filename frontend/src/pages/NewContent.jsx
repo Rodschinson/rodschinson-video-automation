@@ -1,0 +1,939 @@
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../contexts/ThemeContext'
+import { useGeneration } from '../contexts/GenerationContext'
+
+// ─── Content-type definitions ─────────────────────────────────────────────────
+// Each type declares: which steps it goes through, which formats apply,
+// which templates it supports, and what the pipeline looks like.
+
+export const CONTENT_TYPES = [
+  {
+    id: 'video',
+    label: 'Video',
+    icon: '🎬',
+    desc: 'Scripted video with voiceover, rendered scenes & music',
+    formats: ['16:9', '1:1', '9:16'],
+    defaultFormat: '16:9',
+    platforms: ['linkedin', 'youtube', 'facebook'],
+    templateGroup: 'video',
+    steps: ['Script', 'Render', 'Audio', 'Assemble'],
+    stepDesc: ['AI writes a script', 'Puppeteer renders branded scenes', 'ElevenLabs generates voiceover', 'FFmpeg assembles the final video'],
+    showScriptPreview: true,
+    showVoiceStyle: true,
+    showWritingStyle: true,
+    showTemplate: true,
+    estimatedTime: '~60s',
+  },
+  {
+    id: 'reel',
+    label: 'Reel',
+    icon: '🎞️',
+    desc: 'Short vertical video for Instagram, TikTok & YouTube Shorts',
+    formats: ['9:16'],
+    defaultFormat: '9:16',
+    platforms: ['instagram', 'tiktok', 'youtube'],
+    templateGroup: 'video',
+    steps: ['Script', 'Render', 'Audio', 'Assemble'],
+    stepDesc: ['Fast hook + 3 punchy scenes', 'Vertical template render', 'Short-form voiceover', 'FFmpeg vertical assembly'],
+    showScriptPreview: true,
+    showVoiceStyle: true,
+    showWritingStyle: true,
+    showTemplate: true,
+    estimatedTime: '~45s',
+  },
+  {
+    id: 'story',
+    label: 'Story',
+    icon: '⚡',
+    desc: '15-second ephemeral vertical story',
+    formats: ['9:16'],
+    defaultFormat: '9:16',
+    platforms: ['instagram', 'facebook'],
+    templateGroup: 'story',
+    steps: ['Script', 'Render', 'Audio', 'Assemble'],
+    stepDesc: ['Single-message script', 'Story template render', 'Short voiceover', 'FFmpeg story assembly'],
+    showScriptPreview: true,
+    showVoiceStyle: false,
+    showWritingStyle: false,
+    showTemplate: true,
+    estimatedTime: '~30s',
+  },
+  {
+    id: 'carousel',
+    label: 'Carousel',
+    icon: '🖼️',
+    desc: 'Multi-slide image carousel (PDF-ready, LinkedIn / Instagram)',
+    formats: ['1:1', '4:5'],
+    defaultFormat: '1:1',
+    platforms: ['linkedin', 'instagram', 'facebook'],
+    templateGroup: 'carousel',
+    steps: ['Copy', 'Slides', 'Export'],
+    stepDesc: ['AI writes each slide\'s copy', 'Puppeteer renders individual slides', 'Export as image set / PDF'],
+    showScriptPreview: true,
+    showVoiceStyle: false,
+    showWritingStyle: true,
+    showTemplate: true,
+    estimatedTime: '~20s',
+  },
+  {
+    id: 'image_post',
+    label: 'Image Post',
+    icon: '📸',
+    desc: 'Single branded image with headline & key stat',
+    formats: ['1:1', '4:5', '16:9'],
+    defaultFormat: '1:1',
+    platforms: ['linkedin', 'instagram', 'facebook', 'twitter'],
+    templateGroup: 'image',
+    steps: ['Copy', 'Render'],
+    stepDesc: ['AI writes headline & body copy', 'Puppeteer renders branded image'],
+    showScriptPreview: true,
+    showVoiceStyle: false,
+    showWritingStyle: true,
+    showTemplate: true,
+    estimatedTime: '~10s',
+  },
+  {
+    id: 'text_only',
+    label: 'Text Post',
+    icon: '✍️',
+    desc: 'Long-form text post — LinkedIn article, thread or newsletter',
+    formats: ['text'],
+    defaultFormat: 'text',
+    platforms: ['linkedin', 'twitter', 'facebook'],
+    templateGroup: 'text',
+    steps: ['Outline', 'Write', 'Polish'],
+    stepDesc: ['AI builds a structured outline', 'Full post drafted with hook, body & CTA', 'Final tone & style pass'],
+    showScriptPreview: true,
+    showVoiceStyle: false,
+    showWritingStyle: true,
+    showTemplate: false,
+    estimatedTime: '~8s',
+  },
+]
+
+// ─── Template groups ──────────────────────────────────────────────────────────
+const TEMPLATE_GROUPS = {
+  video: [
+    { id: 'rodschinson_premium', label: 'Rodschinson Premium', gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E' },
+    { id: 'news_reel',           label: 'News Reel',           gradient: 'linear-gradient(135deg,#1a0505,#2d0f0f)', accent: '#FF4444' },
+    { id: 'tech_data',           label: 'Tech Data',           gradient: 'linear-gradient(135deg,#031520,#061e2e)', accent: '#00B6FF' },
+    { id: 'corporate_minimal',   label: 'Corporate Minimal',   gradient: 'linear-gradient(135deg,#0a0a0a,#181818)', accent: '#ffffff' },
+    { id: 'social_story',        label: 'Social Story',        gradient: 'linear-gradient(135deg,#1a0a2e,#2d1454)', accent: '#a855f7' },
+    { id: 'motion_type',         label: 'Motion Type',         gradient: 'linear-gradient(135deg,#0a1a0a,#0f2a0f)', accent: '#22c55e' },
+  ],
+  story: [
+    { id: 'social_story',        label: 'Social Story',        gradient: 'linear-gradient(135deg,#1a0a2e,#2d1454)', accent: '#a855f7' },
+    { id: 'rodschinson_premium', label: 'Rodschinson Premium', gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E' },
+    { id: 'motion_type',         label: 'Motion Type',         gradient: 'linear-gradient(135deg,#0a1a0a,#0f2a0f)', accent: '#22c55e' },
+  ],
+  carousel: [
+    { id: 'carousel_clean',      label: 'Clean Slides',        gradient: 'linear-gradient(135deg,#f8f9fa,#e9ecef)', accent: '#08316F'  },
+    { id: 'carousel_bold',       label: 'Bold Deck',           gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E'  },
+    { id: 'carousel_minimal',    label: 'Minimal',             gradient: 'linear-gradient(135deg,#0a0a0a,#181818)', accent: '#ffffff'  },
+    { id: 'carousel_data',       label: 'Data Slides',         gradient: 'linear-gradient(135deg,#031520,#061e2e)', accent: '#00B6FF'  },
+  ],
+  image: [
+    { id: 'image_stat',          label: 'Stat Card',           gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E'  },
+    { id: 'image_quote',         label: 'Quote Card',          gradient: 'linear-gradient(135deg,#1a0a2e,#2d1454)', accent: '#a855f7'  },
+    { id: 'image_news',          label: 'News Banner',         gradient: 'linear-gradient(135deg,#1a0505,#2d0f0f)', accent: '#FF4444'  },
+    { id: 'image_clean',         label: 'Clean White',         gradient: 'linear-gradient(135deg,#f0f4f8,#dde8f0)', accent: '#08316F'  },
+  ],
+  text: [
+    { id: 'text_linkedin',       label: 'LinkedIn Article',    gradient: 'linear-gradient(135deg,#0077B5,#005580)', accent: '#ffffff'   },
+    { id: 'text_thread',         label: 'Thread',              gradient: 'linear-gradient(135deg,#1DA1F2,#0d8ecf)', accent: '#ffffff'   },
+    { id: 'text_newsletter',     label: 'Newsletter',          gradient: 'linear-gradient(135deg,#C8A96E,#a8894e)', accent: '#ffffff'   },
+  ],
+}
+
+// ─── Other static data ────────────────────────────────────────────────────────
+const BRANDS = [
+  { id: 'investment', name: 'Rodschinson Investment', initials: 'RI', color: '#C8A96E' },
+  { id: 'rachid',     name: 'Rachid Chikhi',          initials: 'RC', color: '#00B6FF' },
+]
+const LANGUAGES = ['EN', 'FR', 'NL']
+const STYLES = [
+  { id: 'viral_hook',  label: 'Viral Hook'  },
+  { id: 'educational', label: 'Educational' },
+  { id: 'data_story',  label: 'Data Story'  },
+  { id: 'personal',    label: 'Personal'    },
+  { id: 'provocateur', label: 'Provocateur' },
+  { id: 'thread',      label: 'Thread'      },
+]
+const VOICE_STYLES = [
+  { id: 'professional', label: 'Professional' },
+  { id: 'energetic',    label: 'Energetic'    },
+  { id: 'calm',         label: 'Calm'         },
+  { id: 'authoritative',label: 'Authoritative'},
+]
+const ALL_PLATFORMS = [
+  { id: 'linkedin',  label: 'LinkedIn',  color: '#0077B5' },
+  { id: 'youtube',   label: 'YouTube',   color: '#FF0000' },
+  { id: 'instagram', label: 'Instagram', color: '#E1306C' },
+  { id: 'tiktok',    label: 'TikTok',    color: '#00b4b4' },
+  { id: 'facebook',  label: 'Facebook',  color: '#1877F2' },
+  { id: 'twitter',   label: 'Twitter/X', color: '#1DA1F2' },
+]
+
+const INITIAL_FORM = {
+  subject: '', brand: 'investment', language: 'EN',
+  contentType: 'video', format: '16:9',
+  template: 'rodschinson_premium', style: 'viral_hook',
+  voiceStyle: 'professional', platforms: ['linkedin'], logo: null,
+}
+
+function loadSavedTemplates() {
+  try { return JSON.parse(localStorage.getItem('cs-brief-templates') || '[]') } catch { return [] }
+}
+function saveBriefTemplates(list) {
+  localStorage.setItem('cs-brief-templates', JSON.stringify(list))
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function Chip({ active, children, onClick, color }) {
+  return (
+    <div onClick={onClick} style={{
+      padding: '7px 14px', borderRadius: 6, cursor: 'pointer', userSelect: 'none',
+      border: active ? `1px solid ${color || '#00B6FF'}` : '1px solid var(--cs-border)',
+      background: active ? (color ? `${color}14` : 'rgba(0,182,255,0.08)') : 'var(--cs-hover)',
+      color: active ? (color || '#0099dd') : 'var(--cs-text-sub)',
+      fontSize: 13, fontWeight: active ? 600 : 400,
+      transition: 'all 0.15s', whiteSpace: 'nowrap',
+    }}>{children}</div>
+  )
+}
+
+function Section({ title, hint, children }) {
+  return (
+    <div style={{
+      background: 'var(--cs-surface)', border: '1px solid var(--cs-border)',
+      borderRadius: 10, padding: 20, marginBottom: 14,
+    }}>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ color: 'var(--cs-text-sub)', fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          {title}
+        </div>
+        {hint && <div style={{ color: 'var(--cs-text-muted)', fontSize: 11, marginTop: 3 }}>{hint}</div>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+// Content type picker card
+function TypeCard({ type, active, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      padding: '14px 16px', borderRadius: 8, cursor: 'pointer',
+      border: active ? '2px solid #00B6FF' : '1px solid var(--cs-border)',
+      background: active ? 'rgba(0,182,255,0.06)' : 'var(--cs-surface)',
+      transition: 'all 0.15s',
+      display: 'flex', flexDirection: 'column', gap: 4,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 18 }}>{type.icon}</span>
+        <span style={{ fontSize: 13, fontWeight: active ? 700 : 600, color: active ? '#00B6FF' : 'var(--cs-text)' }}>
+          {type.label}
+        </span>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--cs-text-muted)', lineHeight: 1.4 }}>{type.desc}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+        <span style={{
+          padding: '2px 7px', borderRadius: 10, fontSize: 10, fontWeight: 600,
+          background: active ? 'rgba(0,182,255,0.12)' : 'var(--cs-hover)',
+          color: active ? '#00B6FF' : 'var(--cs-text-muted)',
+        }}>{type.estimatedTime}</span>
+        {type.steps.map((s, i) => (
+          <span key={s} style={{ fontSize: 10, color: 'var(--cs-text-muted)' }}>
+            {s}{i < type.steps.length - 1 ? ' →' : ''}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Pipeline preview (shows the steps this content type will run)
+function PipelinePreview({ typeDef }) {
+  return (
+    <div style={{
+      background: 'var(--cs-surface2)', borderRadius: 8, padding: '12px 16px',
+      border: '1px solid var(--cs-border)',
+    }}>
+      <div style={{ color: 'var(--cs-text-muted)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+        Generation pipeline
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {typeDef.steps.map((step, i) => (
+          <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+              background: 'rgba(0,182,255,0.1)', border: '1px solid rgba(0,182,255,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#00B6FF', fontSize: 10, fontWeight: 700,
+            }}>{i + 1}</div>
+            <div>
+              <div style={{ color: 'var(--cs-text)', fontSize: 12, fontWeight: 600 }}>{step}</div>
+              <div style={{ color: 'var(--cs-text-muted)', fontSize: 11 }}>{typeDef.stepDesc[i]}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 11, color: 'var(--cs-text-muted)' }}>Estimated time:</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#00B6FF' }}>{typeDef.estimatedTime}</span>
+      </div>
+    </div>
+  )
+}
+
+function TemplateCard({ tpl, active, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      cursor: 'pointer', borderRadius: 8, overflow: 'hidden', transition: 'all 0.15s',
+      border: active ? `2px solid ${tpl.accent === '#ffffff' ? '#00B6FF' : tpl.accent}` : '2px solid var(--cs-border)',
+      transform: active ? 'scale(1.02)' : 'scale(1)',
+    }}>
+      <div style={{ background: tpl.gradient, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 28, height: 4, borderRadius: 2, background: tpl.accent, opacity: 0.9 }} />
+      </div>
+      <div style={{
+        padding: '7px 10px', fontSize: 11, textAlign: 'center',
+        background: active ? 'rgba(0,182,255,0.05)' : 'var(--cs-surface2)',
+        color: active ? '#08316F' : 'var(--cs-text-sub)', fontWeight: active ? 600 : 400,
+      }}>{tpl.label}</div>
+    </div>
+  )
+}
+
+function LogoUpload({ file, onFile }) {
+  const [dragging, setDragging] = useState(false)
+  const inputRef = useRef()
+  const handleDrop = useCallback((e) => {
+    e.preventDefault(); setDragging(false)
+    const f = e.dataTransfer.files[0]
+    if (f?.type.startsWith('image/')) onFile(f)
+  }, [onFile])
+  return (
+    <div
+      onClick={() => inputRef.current.click()}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      style={{
+        border: dragging ? '2px dashed #00B6FF' : '2px dashed var(--cs-border)',
+        borderRadius: 8, padding: '20px', textAlign: 'center', cursor: 'pointer',
+        background: dragging ? 'rgba(0,182,255,0.04)' : 'transparent', transition: 'all 0.15s',
+      }}
+    >
+      <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }}
+        onChange={(e) => e.target.files[0] && onFile(e.target.files[0])} />
+      {file ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <img src={URL.createObjectURL(file)} alt="logo" style={{ height: 32, objectFit: 'contain', borderRadius: 4 }} />
+          <span style={{ color: 'var(--cs-text)', fontSize: 13 }}>{file.name}</span>
+          <span style={{ color: 'var(--cs-text-muted)', fontSize: 12 }}>· click to replace</span>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 20, marginBottom: 6 }}>☁️</div>
+          <div style={{ color: 'var(--cs-text-sub)', fontSize: 13 }}>
+            Drop logo or <span style={{ color: '#00B6FF' }}>browse</span>
+          </div>
+          <div style={{ color: 'var(--cs-text-muted)', fontSize: 11, marginTop: 3 }}>PNG, SVG, JPG</div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function StepIndicator({ step, total = 3, labels }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+      {labels.map((label, i) => {
+        const n     = i + 1
+        const done  = step > n
+        const cur   = step === n
+        return (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', flex: i < total - 1 ? 1 : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700,
+                background: done ? '#00B6FF' : cur ? 'rgba(0,182,255,0.1)' : 'var(--cs-hover)',
+                color: done ? '#fff' : cur ? '#00B6FF' : 'var(--cs-text-muted)',
+                border: cur ? '2px solid #00B6FF' : done ? 'none' : '1px solid var(--cs-border)',
+                transition: 'all 0.2s',
+              }}>
+                {done ? '✓' : n}
+              </div>
+              <span style={{
+                fontSize: 12, fontWeight: cur ? 600 : 400,
+                color: cur ? 'var(--cs-text)' : done ? '#00B6FF' : 'var(--cs-text-muted)',
+              }}>{label}</span>
+            </div>
+            {i < total - 1 && (
+              <div style={{
+                flex: 1, height: 1, margin: '0 10px',
+                background: step > n ? 'rgba(0,182,255,0.4)' : 'var(--cs-border)',
+                transition: 'background 0.2s',
+              }} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function SummaryRow({ label, value }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+      <span style={{ color: 'var(--cs-text-muted)', fontSize: 12 }}>{label}</span>
+      <span style={{ color: 'var(--cs-text-sub)', fontSize: 12, textAlign: 'right', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {value || '—'}
+      </span>
+    </div>
+  )
+}
+
+function Spinner() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite' }}>
+      <circle cx="7" cy="7" r="5.5" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+      <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+export default function NewContent() {
+  useTheme()
+  const navigate = useNavigate()
+  const { trackJob } = useGeneration()
+
+  const [step, setStep]   = useState(1)
+  const [form, setForm]   = useState(() => {
+    // Check if Library sent us a regeneration context
+    const regen = sessionStorage.getItem('cs-regenerate')
+    if (regen) {
+      sessionStorage.removeItem('cs-regenerate')
+      try { return { ...INITIAL_FORM, ...JSON.parse(regen) } } catch {}
+    }
+    return INITIAL_FORM
+  })
+
+  const [error, setError] = useState(null)
+  // Script preview
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewScript, setPreviewScript]   = useState(null)
+  const [editedScript, setEditedScript]     = useState('')
+  // Brief templates
+  const [briefTemplates, setBriefTemplates] = useState(loadSavedTemplates)
+  const [showTplMenu, setShowTplMenu]       = useState(false)
+  const tplMenuRef = useRef()
+
+  // Derived
+  const typeDef    = CONTENT_TYPES.find(t => t.id === form.contentType) || CONTENT_TYPES[0]
+  const templates  = TEMPLATE_GROUPS[typeDef.templateGroup] || TEMPLATE_GROUPS.video
+  const platforms  = ALL_PLATFORMS.filter(p => typeDef.platforms.includes(p.id))
+  const stepLabels = ['Brief', 'Format & Style', 'Review']
+
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  // When contentType changes, reset format and template to sensible defaults
+  useEffect(() => {
+    const newType = CONTENT_TYPES.find(t => t.id === form.contentType)
+    if (!newType) return
+    const validFormats = newType.formats
+    const newFormat = validFormats.includes(form.format) ? form.format : newType.defaultFormat
+    const newTemplates = TEMPLATE_GROUPS[newType.templateGroup] || []
+    const templateIds = newTemplates.map(t => t.id)
+    const newTemplate = templateIds.includes(form.template) ? form.template : (newTemplates[0]?.id || '')
+    const validPlatforms = ALL_PLATFORMS.filter(p => newType.platforms.includes(p.id)).map(p => p.id)
+    const newPlatforms = form.platforms.filter(p => validPlatforms.includes(p))
+
+    setForm(f => ({
+      ...f,
+      format: newFormat,
+      template: newTemplate,
+      platforms: newPlatforms.length ? newPlatforms : [validPlatforms[0]],
+    }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.contentType])
+
+  // Close template menu on outside click
+  useEffect(() => {
+    function handler(e) {
+      if (tplMenuRef.current && !tplMenuRef.current.contains(e.target)) setShowTplMenu(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const togglePlatform = (id) =>
+    setForm(f => ({
+      ...f,
+      platforms: f.platforms.includes(id)
+        ? f.platforms.filter(p => p !== id)
+        : [...f.platforms, id],
+    }))
+
+  // ── Script preview ──────────────────────────────────────────────────────────
+  const handlePreviewScript = async () => {
+    if (!form.subject.trim()) { setError('Enter a brief first.'); return }
+    setPreviewLoading(true); setError(null)
+    try {
+      const res = await fetch('/api/preview-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: form.subject, brand: form.brand,
+          language: form.language, format: form.format,
+          contentType: form.contentType,
+        }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      setPreviewScript(data)
+      setEditedScript(JSON.stringify(data.script, null, 2))
+    } catch {
+      setError('Preview unavailable — API offline. You can generate directly.')
+    } finally { setPreviewLoading(false) }
+  }
+
+  // ── Generate (fires & forgets — user can navigate away) ─────────────────────
+  const handleGenerate = async () => {
+    if (!form.subject.trim())        { setError('Enter a brief subject.'); return }
+    if (form.platforms.length === 0) { setError('Select at least one platform.'); return }
+    setError(null)
+
+    const body = new FormData()
+    body.append('payload', JSON.stringify({
+      subject: form.subject, brand: form.brand, language: form.language,
+      contentType: form.contentType, format: form.format,
+      template: form.template, style: form.style,
+      voiceStyle: form.voiceStyle, platforms: form.platforms,
+      ...(previewScript && editedScript ? { custom_script: editedScript } : {}),
+    }))
+    if (form.logo) body.append('logo', form.logo)
+
+    try {
+      const res = await fetch('/api/generate', { method: 'POST', body })
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+
+      // Register in global tracker — polling continues even after navigation
+      trackJob(data.job_id, {
+        title: form.subject.slice(0, 60),
+        contentType: form.contentType,
+      })
+
+      // Reset form so user can start a new one immediately
+      setForm(INITIAL_FORM)
+      setStep(1)
+      setPreviewScript(null)
+      setEditedScript('')
+
+      // Brief toast-style message — navigate to Library so they can watch progress
+      navigate('/library')
+
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  // ── Brief template helpers ──────────────────────────────────────────────────
+  const handleSaveTemplate = () => {
+    const name = prompt('Template name:', form.subject.slice(0, 40) || 'My template')
+    if (!name) return
+    const tpl = { id: Date.now(), name, form: { ...form, logo: null } }
+    const updated = [tpl, ...briefTemplates.slice(0, 9)]
+    setBriefTemplates(updated); saveBriefTemplates(updated)
+  }
+
+  const handleLoadTemplate = (tpl) => {
+    setForm({ ...INITIAL_FORM, ...tpl.form }); setShowTplMenu(false); setStep(1)
+  }
+
+  const handleDeleteTemplate = (id) => {
+    const updated = briefTemplates.filter(t => t.id !== id)
+    setBriefTemplates(updated); saveBriefTemplates(updated)
+  }
+
+  const goNext = () => {
+    if (step === 1 && !form.subject.trim()) { setError('Enter a brief before continuing.'); return }
+    setError(null); setStep(s => s + 1)
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', maxWidth: 1080, animation: 'fadein 0.2s ease' }}>
+
+      {/* ── Left: Form ── */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <h1 style={{ color: 'var(--cs-text)', fontSize: 22, fontWeight: 700, margin: '0 0 4px' }}>New Content</h1>
+            <p style={{ color: 'var(--cs-text-sub)', fontSize: 13, margin: 0 }}>
+              Generate and send to queue — you can start another while this one processes.
+            </p>
+          </div>
+          {/* Brief templates dropdown */}
+          <div ref={tplMenuRef} style={{ position: 'relative' }}>
+            <button onClick={() => setShowTplMenu(s => !s)} style={{
+              padding: '7px 14px', borderRadius: 7, fontSize: 12, cursor: 'pointer',
+              background: 'var(--cs-surface)', border: '1px solid var(--cs-border)',
+              color: 'var(--cs-text-sub)', display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              📋 Saved Briefs {briefTemplates.length > 0 && `(${briefTemplates.length})`}
+            </button>
+            {showTplMenu && (
+              <div style={{
+                position: 'absolute', right: 0, top: 38, zIndex: 50, width: 280,
+                background: 'var(--cs-surface)', border: '1px solid var(--cs-border)',
+                borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', overflow: 'hidden',
+                animation: 'fadein 0.12s ease',
+              }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--cs-border)', color: 'var(--cs-text-sub)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  Saved Briefs
+                </div>
+                {briefTemplates.length === 0 ? (
+                  <div style={{ padding: '20px 14px', color: 'var(--cs-text-muted)', fontSize: 12, textAlign: 'center' }}>
+                    No saved briefs yet.<br />Fill a brief and click "+ Save".
+                  </div>
+                ) : briefTemplates.map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', padding: '9px 14px', borderBottom: '1px solid var(--cs-border-sub)', gap: 8 }}>
+                    <span style={{ fontSize: 14 }}>{CONTENT_TYPES.find(ct => ct.id === t.form?.contentType)?.icon || '📄'}</span>
+                    <button onClick={() => handleLoadTemplate(t)} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text)', fontSize: 12, textAlign: 'left', padding: 0 }}>
+                      {t.name}
+                    </button>
+                    <button onClick={() => handleDeleteTemplate(t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text-muted)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <StepIndicator step={step} total={3} labels={stepLabels} />
+
+        {/* ── STEP 1: Content type + Brief ── */}
+        {step === 1 && (
+          <div style={{ animation: 'fadein 0.15s ease' }}>
+
+            {/* Content type picker */}
+            <Section title="What are you creating?" hint="Each type has its own pipeline and templates">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                {CONTENT_TYPES.map(t => (
+                  <TypeCard key={t.id} type={t} active={form.contentType === t.id} onClick={() => set('contentType', t.id)} />
+                ))}
+              </div>
+            </Section>
+
+            {/* Brief */}
+            <Section title="Brief" hint="Describe the subject, key data points, and angle">
+              <textarea
+                value={form.subject}
+                onChange={e => set('subject', e.target.value)}
+                placeholder={
+                  form.contentType === 'text_only'
+                    ? 'e.g. 5 lessons from 20 years in M&A — share personal stories, include a strong opener and a CTA at the end'
+                    : form.contentType === 'carousel'
+                    ? 'e.g. Due diligence CRE: 10 key points — one point per slide, data-driven, professional tone'
+                    : form.contentType === 'image_post'
+                    ? 'e.g. Real estate up 12% in Q1 — bold headline, 1 stat, brand watermark bottom-right'
+                    : 'e.g. Real estate investment up 12% in Q1 — 3 reasons why now is the time to act'
+                }
+                rows={4}
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: 'var(--cs-input-bg)', border: '1px solid var(--cs-border)',
+                  borderRadius: 7, padding: '12px 14px',
+                  color: 'var(--cs-text)', fontSize: 13, lineHeight: 1.6,
+                  resize: 'vertical', outline: 'none', fontFamily: 'inherit',
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button onClick={handleSaveTemplate} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text-muted)', fontSize: 11, padding: 0 }}>
+                  + Save as template
+                </button>
+              </div>
+            </Section>
+
+            {/* Brand + Language */}
+            <Section title="Brand">
+              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                {BRANDS.map(b => (
+                  <div key={b.id} onClick={() => set('brand', b.id)} style={{
+                    flex: 1, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+                    borderRadius: 8, cursor: 'pointer',
+                    border: form.brand === b.id ? `1px solid ${b.color}` : '1px solid var(--cs-border)',
+                    background: form.brand === b.id
+                      ? `rgba(${b.color === '#C8A96E' ? '200,169,110' : '0,182,255'},0.06)`
+                      : 'var(--cs-input-bg)',
+                    transition: 'all 0.15s',
+                  }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg,#08316F,${b.color})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11 }}>{b.initials}</div>
+                    <span style={{ color: form.brand === b.id ? 'var(--cs-text)' : 'var(--cs-text-sub)', fontSize: 13, fontWeight: form.brand === b.id ? 600 : 400 }}>{b.name}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {LANGUAGES.map(l => (
+                  <Chip key={l} active={form.language === l} onClick={() => set('language', l)}>{l}</Chip>
+                ))}
+              </div>
+            </Section>
+
+            {/* Pipeline preview for selected type */}
+            <PipelinePreview typeDef={typeDef} />
+          </div>
+        )}
+
+        {/* ── STEP 2: Format / Style / Templates ── */}
+        {step === 2 && (
+          <div style={{ animation: 'fadein 0.15s ease' }}>
+
+            {/* Format — only shown for non-text types */}
+            {form.contentType !== 'text_only' && (
+              <Section title="Format" hint={typeDef.formats.length === 1 ? `${typeDef.label} only supports ${typeDef.formats[0]}` : 'Aspect ratio for this content'}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {typeDef.formats.map(f => (
+                    <Chip key={f} active={form.format === f} onClick={() => set('format', f)}>{f}</Chip>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Templates — not shown for text_only */}
+            {typeDef.showTemplate && templates.length > 0 && (
+              <Section title="Template" hint={`Templates designed for ${typeDef.label}`}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(120px,1fr))', gap: 10 }}>
+                  {templates.map(t => (
+                    <TemplateCard key={t.id} tpl={t} active={form.template === t.id} onClick={() => set('template', t.id)} />
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Writing style */}
+            {typeDef.showWritingStyle && (
+              <Section title="Writing Style">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {STYLES.map(s => (
+                    <Chip key={s.id} active={form.style === s.id} onClick={() => set('style', s.id)}>{s.label}</Chip>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Voice style — only for video/reel */}
+            {typeDef.showVoiceStyle && (
+              <Section title="Voice Style" hint="Tone for ElevenLabs voiceover">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {VOICE_STYLES.map(v => (
+                    <Chip key={v.id} active={form.voiceStyle === v.id} onClick={() => set('voiceStyle', v.id)}>{v.label}</Chip>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* Platforms */}
+            <Section title="Platforms" hint={`Recommended for ${typeDef.label}`}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {platforms.map(p => (
+                  <Chip
+                    key={p.id} active={form.platforms.includes(p.id)}
+                    onClick={() => togglePlatform(p.id)} color={p.color}
+                  >{p.label}</Chip>
+                ))}
+              </div>
+            </Section>
+
+            {/* Logo — only for visual types */}
+            {form.contentType !== 'text_only' && (
+              <Section title="Logo Override" hint="Optional — replaces brand logo in the template">
+                <LogoUpload file={form.logo} onFile={f => set('logo', f)} />
+              </Section>
+            )}
+          </div>
+        )}
+
+        {/* ── STEP 3: Review & Generate ── */}
+        {step === 3 && (
+          <div style={{ animation: 'fadein 0.15s ease' }}>
+
+            {/* Script / copy preview (for all types) */}
+            {typeDef.showScriptPreview && (
+              <div style={{ background: 'var(--cs-surface)', border: '1px solid var(--cs-border)', borderRadius: 10, padding: 20, marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ color: 'var(--cs-text-sub)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
+                      {form.contentType === 'text_only'    ? 'Text Preview'
+                       : form.contentType === 'carousel'   ? 'Slide Copy Preview'
+                       : form.contentType === 'image_post' ? 'Headline & Copy Preview'
+                       : 'Script Preview'}
+                    </div>
+                    <div style={{ color: 'var(--cs-text-muted)', fontSize: 12 }}>
+                      Preview and edit before generating — or skip to use AI directly
+                    </div>
+                  </div>
+                  {!previewScript && (
+                    <button onClick={handlePreviewScript} disabled={previewLoading} style={{
+                      padding: '8px 16px', borderRadius: 7, border: '1px solid rgba(0,182,255,0.4)',
+                      background: 'rgba(0,182,255,0.08)', color: '#00B6FF',
+                      fontSize: 12, fontWeight: 600, cursor: previewLoading ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+                    }}>
+                      {previewLoading && <Spinner />}
+                      {previewLoading ? 'Generating…' : '⚡ Preview'}
+                    </button>
+                  )}
+                </div>
+                {previewScript && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ color: '#16a34a', fontSize: 12, fontWeight: 600 }}>✓ Preview ready — edit freely</span>
+                      <button onClick={() => { setPreviewScript(null); setEditedScript('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text-muted)', fontSize: 11 }}>Reset</button>
+                    </div>
+                    <textarea
+                      value={editedScript}
+                      onChange={e => setEditedScript(e.target.value)}
+                      rows={form.contentType === 'text_only' ? 18 : 12}
+                      style={{
+                        width: '100%', boxSizing: 'border-box',
+                        background: 'var(--cs-input-bg)', border: '1px solid var(--cs-border)',
+                        borderRadius: 7, padding: '10px 12px',
+                        color: 'var(--cs-text)', fontSize: 11, lineHeight: 1.7,
+                        fontFamily: 'ui-monospace,SFMono-Regular,monospace',
+                        resize: 'vertical', outline: 'none',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Pipeline preview for this type */}
+            <div style={{ marginBottom: 14 }}>
+              <PipelinePreview typeDef={typeDef} />
+            </div>
+
+            {/* Summary */}
+            <div style={{ background: 'var(--cs-surface)', border: '1px solid var(--cs-border)', borderRadius: 10, padding: 20, marginBottom: 14 }}>
+              <div style={{ color: 'var(--cs-text-sub)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
+                Summary
+              </div>
+              <SummaryRow label="Type"      value={`${typeDef.icon} ${typeDef.label}`} />
+              <SummaryRow label="Brief"     value={form.subject ? form.subject.slice(0, 60) + (form.subject.length > 60 ? '…' : '') : '—'} />
+              <SummaryRow label="Brand"     value={BRANDS.find(b => b.id === form.brand)?.name} />
+              <SummaryRow label="Language"  value={form.language} />
+              {form.contentType !== 'text_only' && <SummaryRow label="Format"    value={form.format} />}
+              {typeDef.showTemplate && <SummaryRow label="Template"  value={templates.find(t => t.id === form.template)?.label} />}
+              {typeDef.showWritingStyle && <SummaryRow label="Style"     value={STYLES.find(s => s.id === form.style)?.label} />}
+              {typeDef.showVoiceStyle   && <SummaryRow label="Voice"     value={VOICE_STYLES.find(v => v.id === form.voiceStyle)?.label} />}
+              <SummaryRow label="Platforms" value={form.platforms.map(id => ALL_PLATFORMS.find(p => p.id === id)?.label).filter(Boolean).join(', ') || '—'} />
+              {previewScript && (
+                <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(0,182,255,0.06)', border: '1px solid rgba(0,182,255,0.15)' }}>
+                  <span style={{ color: '#00B6FF', fontSize: 11 }}>Custom script will be used</span>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 12, marginBottom: 12 }}>
+                {error}
+              </div>
+            )}
+
+            {/* Background generation CTA */}
+            <button onClick={handleGenerate} style={{
+              width: '100%', padding: '14px', borderRadius: 8, border: 'none',
+              background: 'linear-gradient(135deg,#08316F,#00B6FF)',
+              color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              boxShadow: '0 4px 20px rgba(0,182,255,0.3)',
+            }}>
+              <span>{typeDef.icon}</span>
+              Generate {typeDef.label}
+            </button>
+            <p style={{ color: 'var(--cs-text-muted)', fontSize: 11, textAlign: 'center', marginTop: 8, marginBottom: 0 }}>
+              {typeDef.estimatedTime} · Runs in background — you can keep working
+            </p>
+          </div>
+        )}
+
+        {/* Step nav */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          {step > 1 && (
+            <button onClick={() => { setError(null); setStep(s => s - 1) }} style={{
+              padding: '10px 20px', borderRadius: 7, border: '1px solid var(--cs-border)',
+              background: 'var(--cs-surface)', color: 'var(--cs-text-sub)', fontSize: 13, cursor: 'pointer',
+            }}>← Back</button>
+          )}
+          {step < 3 && (
+            <button onClick={goNext} style={{
+              flex: 1, padding: '10px 20px', borderRadius: 7, border: 'none',
+              background: 'linear-gradient(135deg,#08316F,#00B6FF)',
+              color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}>
+              Continue →
+            </button>
+          )}
+        </div>
+        {error && step < 3 && (
+          <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '8px 12px', color: '#dc2626', fontSize: 12, marginTop: 10 }}>
+            {error}
+          </div>
+        )}
+      </div>
+
+      {/* ── Right: sticky summary panel ── */}
+      <div style={{ width: 240, flexShrink: 0, position: 'sticky', top: 0 }}>
+        <div style={{ background: 'var(--cs-surface)', border: '1px solid var(--cs-border)', borderRadius: 10, padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{ fontSize: 20 }}>{typeDef.icon}</span>
+            <div>
+              <div style={{ color: 'var(--cs-text)', fontSize: 13, fontWeight: 700 }}>{typeDef.label}</div>
+              <div style={{ color: 'var(--cs-text-muted)', fontSize: 11 }}>{typeDef.estimatedTime}</div>
+            </div>
+          </div>
+
+          <SummaryRow label="Brand"     value={BRANDS.find(b => b.id === form.brand)?.name} />
+          <SummaryRow label="Language"  value={form.language} />
+          {form.contentType !== 'text_only' && <SummaryRow label="Format" value={form.format} />}
+          {typeDef.showTemplate && <SummaryRow label="Template" value={templates.find(t => t.id === form.template)?.label} />}
+          <SummaryRow label="Platforms" value={form.platforms.map(id => ALL_PLATFORMS.find(p => p.id === id)?.label).filter(Boolean).join(', ') || '—'} />
+
+          <div style={{ height: 1, background: 'var(--cs-border)', margin: '14px 0' }} />
+
+          {/* Pipeline steps mini */}
+          <div style={{ color: 'var(--cs-text-muted)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+            Pipeline
+          </div>
+          {typeDef.steps.map((s, i) => (
+            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+              <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,182,255,0.1)', border: '1px solid rgba(0,182,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#00B6FF', fontWeight: 700, flexShrink: 0 }}>{i+1}</div>
+              <span style={{ color: 'var(--cs-text-sub)', fontSize: 11 }}>{s}</span>
+            </div>
+          ))}
+
+          <div style={{ height: 1, background: 'var(--cs-border)', margin: '14px 0' }} />
+
+          {/* Step dots */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[1,2,3].map(n => (
+              <div key={n} style={{ flex: 1, height: 3, borderRadius: 2, background: step >= n ? '#00B6FF' : 'var(--cs-border)', transition: 'background 0.2s' }} />
+            ))}
+          </div>
+          <div style={{ color: 'var(--cs-text-muted)', fontSize: 10, marginTop: 5 }}>Step {step} of 3</div>
+        </div>
+      </div>
+    </div>
+  )
+}

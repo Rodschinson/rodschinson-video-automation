@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700;800&family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --red:    #CC0000;
+  --red2:   #FF3232;
+  --dark:   #0a0a0a;
+  --dark2:  #111111;
+  --white:  #FFFFFF;
+  --gray:   rgba(255,255,255,0.6);
+  --gold:   #C8A96E;
+  --blue:   #08316F;
+  --sky:    #00B6FF;
+  --sans:   'Space Grotesk', 'Noto Sans', sans-serif;
+  --bebas:  'Bebas Neue', sans-serif;
+}
+
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--dark);
+  font-family: var(--sans);
+  color: var(--white);
+}
+
+/* ── PERSISTENT FRAME ── */
+.frame { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+
+.top-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 5px;
+  background: var(--red);
+}
+
+.header {
+  position: absolute;
+  top: 12px; left: 0; right: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  gap: 24px;
+  background: rgba(10,10,10,0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.logo-box {
+  background: var(--red);
+  padding: 6px 18px;
+  font-family: var(--bebas);
+  font-size: 28px;
+  letter-spacing: 0.06em;
+  color: var(--white);
+  flex-shrink: 0;
+}
+
+.header-divider {
+  width: 1px;
+  height: 30px;
+  background: rgba(255,255,255,0.15);
+}
+
+.header-channel {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red2);
+  letter-spacing: 0.15em;
+  margin-left: 8px;
+}
+.live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--red2);
+  animation: blink 1s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+.header-time {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.45);
+}
+
+.ticker {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--red);
+}
+.ticker-label {
+  background: #990000;
+  padding: 0 20px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--white);
+  white-space: nowrap;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.ticker-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--white);
+  white-space: nowrap;
+  padding-left: 30px;
+  animation: tickerScroll 20s linear infinite;
+  letter-spacing: 0.06em;
+}
+@keyframes tickerScroll {
+  0%   { transform: translateX(400px); }
+  100% { transform: translateX(-2000px); }
+}
+
+.lower-third {
+  position: absolute;
+  bottom: 50px;
+  left: 40px;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.5s ease 1s;
+}
+.lt-accent { width: 5px; background: var(--red); flex-shrink: 0; }
+.lt-content { background: rgba(10,10,10,0.92); padding: 10px 18px; }
+.lt-name { font-size: 22px; font-weight: 700; color: var(--white); line-height: 1.2; }
+.lt-title { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+.scene.anim .lower-third { opacity: 1; transform: none; }
+
+/* ── SCENE BASE ── */
+.scene {
+  position: absolute;
+  top: 77px;
+  left: 0; right: 0;
+  bottom: 42px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.scene.active { display: flex; }
+
+/* ── BREAKING NEWS LAYOUT ── */
+.breaking {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 40px 60px;
+  gap: 0;
+  position: relative;
+}
+
+.brk-category {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--red2);
+  margin-bottom: 16px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.5s ease;
+}
+
+.brk-headline {
+  font-family: var(--sans);
+  font-size: 88px;
+  font-weight: 800;
+  color: var(--white);
+  line-height: 1.05;
+  max-width: 1400px;
+  margin-bottom: 24px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease 0.15s;
+}
+
+.brk-sub {
+  font-size: 26px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.6);
+  line-height: 1.5;
+  max-width: 1200px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.5s ease 0.3s;
+}
+
+.brk-divider {
+  width: 0;
+  height: 4px;
+  background: var(--red);
+  margin: 24px 0;
+  transition: width 0.6s ease 0.5s;
+}
+
+.brk-tags {
+  display: flex;
+  gap: 12px;
+  opacity: 0;
+  transition: opacity 0.5s ease 0.7s;
+}
+.brk-tag {
+  padding: 6px 16px;
+  border: 1px solid rgba(255,255,255,0.2);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+
+.scene.anim .brk-category,
+.scene.anim .brk-headline,
+.scene.anim .brk-sub,
+.scene.anim .brk-tags { opacity: 1; transform: none; }
+.scene.anim .brk-divider { width: 120px; }
+
+/* ── DATA PANEL ── */
+.data-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.dp-left {
+  padding: 50px 60px;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dp-right {
+  padding: 50px 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+}
+
+.dp-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--red2);
+  margin-bottom: 16px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.5s ease;
+}
+
+.dp-number {
+  font-family: var(--bebas);
+  font-size: 200px;
+  color: var(--white);
+  line-height: 0.85;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.7s cubic-bezier(0.16,1,0.3,1) 0.2s;
+}
+.dp-number span { color: var(--red2); font-size: 0.45em; vertical-align: super; }
+
+.dp-context {
+  font-size: 20px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  margin-top: 16px;
+  letter-spacing: 0.1em;
+  opacity: 0;
+  transition: opacity 0.5s ease 0.6s;
+}
+
+.dp-stat {
+  padding: 20px 24px;
+  border-left: 3px solid var(--red);
+  background: rgba(255,255,255,0.04);
+  opacity: 0;
+  transform: translateX(12px);
+  transition: all 0.45s ease;
+}
+.dp-stat-label { font-size: 12px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 6px; }
+.dp-stat-value { font-family: var(--bebas); font-size: 48px; color: var(--white); line-height: 1; letter-spacing: 0.05em; }
+.dp-stat-change { font-size: 14px; font-weight: 600; color: #00cc66; margin-top: 4px; }
+
+.scene.anim .dp-label,
+.scene.anim .dp-context { opacity: 1; transform: none; }
+.scene.anim .dp-number { opacity: 1; transform: scale(1); }
+.scene.anim .dp-stat { opacity: 1; transform: none; }
+
+/* ── ANALYSIS ── */
+.analysis {
+  flex-direction: column;
+  padding: 40px 60px;
+  gap: 24px;
+}
+
+.an-title {
+  font-size: 52px;
+  font-weight: 800;
+  color: var(--white);
+  line-height: 1.1;
+  border-left: 5px solid var(--red);
+  padding-left: 24px;
+  opacity: 0;
+  transform: translateX(-12px);
+  transition: all 0.6s ease;
+}
+
+.an-points { display: flex; flex-direction: column; gap: 16px; }
+
+.an-point {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 18px 24px;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  opacity: 0;
+  transform: translateX(-12px);
+  transition: all 0.45s ease;
+}
+.an-num {
+  font-family: var(--bebas);
+  font-size: 48px;
+  color: var(--red);
+  line-height: 1;
+  min-width: 48px;
+  flex-shrink: 0;
+}
+.an-text { font-size: 24px; font-weight: 500; color: rgba(255,255,255,0.82); line-height: 1.4; }
+
+.scene.anim .an-title { opacity: 1; transform: none; }
+.scene.anim .an-point { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<!-- PERSISTENT FRAME -->
+<div class="frame">
+  <div class="top-bar"></div>
+  <div class="header">
+    <div class="logo-box">RODSCHINSON</div>
+    <div class="header-divider"></div>
+    <div class="header-channel">Market Intelligence</div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="header-time" id="clock">14:32 CET</div>
+  </div>
+  <div class="ticker">
+    <div class="ticker-label">BREAKING</div>
+    <div class="ticker-text" id="ticker-text">LOADING...</div>
+  </div>
+  <div class="lower-third" id="lower-third">
+    <div class="lt-accent"></div>
+    <div class="lt-content">
+      <div class="lt-name" id="lt-name">Rachid Chikhi</div>
+      <div class="lt-title" id="lt-title">CEO, Rodschinson Investment · Brussels</div>
+    </div>
+  </div>
+</div>
+
+<div id="scene-container"></div>
+
+<script>
+// Update clock
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m} CET`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+const SCENE_BUILDERS = {
+
+  title_card: (data) => `
+    <div class="scene breaking" id="scene">
+      <div class="brk-category">${data.eyebrow || 'Marchés · Immobilier Commercial'}</div>
+      <div class="brk-headline">${(data.titre_principal||'').replace(/\n/g,'<br>').replace(/\*([^*]+)\*/g,'$1')}</div>
+      <div class="brk-divider"></div>
+      <div class="brk-sub">${data.sous_titre || ''}</div>
+      <div class="brk-tags">
+        ${(data.tags||['Brussels','Dubai','Casablanca']).map(t=>`<div class="brk-tag">${t}</div>`).join('')}
+      </div>
+    </div>`,
+
+  big_number: (data) => `
+    <div class="scene" id="scene" style="display:none">
+      <div class="data-panel">
+        <div class="dp-left">
+          <div class="dp-label">${data.eyebrow || ''}</div>
+          <div class="dp-number"><span id="bn-counter">${data.valeur||'0'}</span><span>${data.unite||'%'}</span></div>
+          <div class="dp-context">${data.contexte||''}</div>
+        </div>
+        <div class="dp-right">
+          ${(data.stats||[{label:'Paris Prime',value:'3.8%',change:'+0.2%'},{label:'Dubai',value:'5.8%',change:'+0.5%'},{label:'Casablanca',value:'7.5%',change:'+0.3%'}]).map((s,i)=>`
+          <div class="dp-stat" style="transition-delay:${0.3+i*0.12}s">
+            <div class="dp-stat-label">${s.label||''}</div>
+            <div class="dp-stat-value">${s.value||''}</div>
+            <div class="dp-stat-change">${s.change||''}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`,
+
+  bar_chart: (data) => {
+    const series = data.series || [];
+    const points = series.map(s=>`${s.label}: ${s.valeur}%`).join(' · ');
+    return `
+      <div class="scene analysis" id="scene">
+        <div class="an-title">${data.titre||''}</div>
+        <div class="an-points">
+          ${series.map((s,i)=>`
+          <div class="an-point" data-index="${i}" style="transition-delay:${0.2+i*0.12}s">
+            <div class="an-num">${String(i+1).padStart(2,'0')}</div>
+            <div class="an-text"><strong>${s.label}</strong> — Cap Rate ${s.valeur}% ${s.couleur?'':'(Source: CBRE 2025)'}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  },
+
+  process_steps: (data) => {
+    const etapes = data.etapes || [];
+    const active = data.active || 0;
+    return `
+      <div class="scene analysis" id="scene">
+        <div class="an-title">${(data.titre||'').replace(/\n/g,' ')}</div>
+        <div class="an-points">
+          ${etapes.map((text,i)=>`
+          <div class="an-point ${i===active?'style="border-bottom:1px solid rgba(204,0,0,0.3)"':''}" data-index="${i}" style="transition-delay:${0.2+i*0.12}s">
+            <div class="an-num" style="color:${i===active?'var(--red2)':i<active?'#00cc66':'rgba(255,255,255,0.3)'}">${String(i+1).padStart(2,'0')}</div>
+            <div class="an-text" style="color:${i===active?'#fff':i<active?'rgba(255,255,255,0.5)':'rgba(255,255,255,0.35)'}">${text}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  },
+
+  text_bullets: (data) => {
+    const items = data.items || [];
+    return `
+      <div class="scene analysis" id="scene">
+        <div class="an-title">${data.titre||''}</div>
+        <div class="an-points">
+          ${items.map((text,i)=>`
+          <div class="an-point" data-index="${i}" style="transition-delay:${0.2+i*0.15}s">
+            <div class="an-num">${String(i+1).padStart(2,'0')}</div>
+            <div class="an-text">${text}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  },
+
+  cta_screen: (data) => `
+    <div class="scene breaking" id="scene">
+      <div class="brk-category">${data.eyebrow||'Rodschinson Investment'}</div>
+      <div class="brk-headline" style="font-size:72px">${(data.headline||data.cta_text||'').replace(/\n/g,'<br>')}</div>
+      <div class="brk-divider"></div>
+      <div class="brk-sub">${data.url||'rodschinson.com'} · Brussels · Dubai · Casablanca</div>
+      <div class="brk-tags">
+        <div class="brk-tag" style="border-color:var(--red);color:var(--red2)">${data.cta_text||'Consultation Gratuite'}</div>
+      </div>
+    </div>`,
+
+  split_screen: (data) => {
+    const left  = data.colonne_gauche || {};
+    const right = data.colonne_droite || {};
+    return `
+      <div class="scene" id="scene" style="display:none">
+        <div class="data-panel">
+          <div class="dp-left">
+            <div class="dp-label">${left.titre||''}</div>
+            ${(left.items||[]).map((item,i)=>`
+            <div class="dp-stat" style="margin-bottom:12px;transition-delay:${0.2+i*0.12}s">
+              <div class="dp-stat-label">Point ${i+1}</div>
+              <div class="dp-stat-value" style="font-size:28px;line-height:1.3;font-family:var(--sans);font-weight:600">${item}</div>
+            </div>`).join('')}
+          </div>
+          <div class="dp-right">
+            <div class="dp-label" style="color:var(--red2)">${right.titre||''}</div>
+            ${(right.items||[]).map((item,i)=>`
+            <div class="dp-stat" style="margin-bottom:12px;border-left-color:var(--red2);transition-delay:${0.35+i*0.12}s">
+              <div class="dp-stat-label">Point ${i+1}</div>
+              <div class="dp-stat-value" style="font-size:28px;line-height:1.3;font-family:var(--sans);font-weight:600">${item}</div>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  },
+};
+
+window.loadScene = function(sceneData) {
+  const container = document.getElementById('scene-container');
+  const type = sceneData.type_visuel;
+  const visuel = sceneData.visuel || {};
+  const builder = SCENE_BUILDERS[type];
+  if (!builder) { console.error('Unknown:', type); return false; }
+  container.innerHTML = builder(visuel);
+
+  // Update ticker
+  const tickerText = sceneData.ticker ||
+    'DUBAI CRE +31% Q1 2025 · PARIS BUREAUX PRIME 3.8% · RODSCHINSON INVESTMENT · M&A EMEA VOLUME UP 18% · CORRIDOR EUROPE-GOLFE';
+  document.getElementById('ticker-text').textContent = tickerText;
+
+  // Update lower third
+  if (sceneData.speaker) {
+    document.getElementById('lt-name').textContent = sceneData.speaker.name || 'Rachid Chikhi';
+    document.getElementById('lt-title').textContent = sceneData.speaker.title || 'CEO, Rodschinson Investment · Brussels';
+  }
+
+  return true;
+};
+
+window.animateScene = function() {
+  const scene = document.getElementById('scene');
+  if (!scene) return;
+  requestAnimationFrame(() => {
+    scene.classList.add('active');
+    setTimeout(() => {
+      scene.classList.add('anim');
+      const items = scene.querySelectorAll('.an-point, .dp-stat');
+      items.forEach((el, i) => {
+        setTimeout(() => { el.style.opacity='1'; el.style.transform='none'; }, 200 + i*130);
+      });
+      const lt = document.getElementById('lower-third');
+      if (lt) lt.style.cssText += 'opacity:1;transform:none;';
+    }, 50);
+  });
+};
+
+window.isAnimationComplete = function(minDuration) {
+  return new Promise(resolve => setTimeout(resolve, minDuration || 1500));
+};
+</script>
+</body>
+</html>
