@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;0,700;1,400;1,600&family=Space+Grotesk:wght@300;400;500;600&display=swap');
+
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --blue:   #08316F;
+  --sky:    #00B6FF;
+  --gold:   #C8A96E;
+  --white:  #FFFFFF;
+  --w50:    rgba(255,255,255,0.5);
+  --w30:    rgba(255,255,255,0.3);
+  --w15:    rgba(255,255,255,0.15);
+  --serif:  'Cormorant Garamond', Georgia, serif;
+  --sans:   'Space Grotesk', sans-serif;
+}
+
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--blue);
+  font-family: var(--sans);
+}
+
+/* ── PERSISTENT FRAME ── */
+.frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.top-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--sky) 0%, var(--gold) 60%, transparent 100%);
+}
+
+.rule-top {
+  position: absolute;
+  top: 5.5%;
+  left: 5%; right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200,169,110,0.35), transparent);
+}
+
+.rule-bot {
+  position: absolute;
+  bottom: 8%;
+  left: 5%; right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200,169,110,0.35), transparent);
+}
+
+.logo {
+  position: absolute;
+  bottom: 2.8%;
+  left: 4.5%;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(200,169,110,0.3);
+}
+
+/* ── GEOMETRY ── */
+.geo {
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  pointer-events: none;
+}
+
+/* ── SCENE BASE ── */
+.scene {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.scene.active { display: flex; }
+
+/* ══════════════════════════════════════════
+   SCENE: TITLE CARD
+══════════════════════════════════════════ */
+.title-card {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 8%;
+}
+
+.tc-eyebrow {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.45em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 28px;
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: all 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+
+.tc-title {
+  font-family: var(--serif);
+  font-size: 90px;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.05;
+  margin-bottom: 30px;
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: all 0.7s cubic-bezier(0.16,1,0.3,1) 0.15s;
+}
+
+.tc-title em {
+  font-style: italic;
+  color: var(--gold);
+}
+
+.tc-divider {
+  width: 0;
+  height: 3px;
+  background: var(--gold);
+  margin-bottom: 20px;
+  transition: width 0.6s cubic-bezier(0.16,1,0.3,1) 0.4s;
+}
+
+.tc-sub {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--w50);
+  opacity: 0;
+  transform: translateX(-15px);
+  transition: all 0.6s cubic-bezier(0.16,1,0.3,1) 0.55s;
+}
+
+.tc-waternum {
+  position: absolute;
+  right: 5%;
+  bottom: 6%;
+  font-family: var(--serif);
+  font-size: 220px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.04);
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.8s ease 0.8s;
+}
+
+/* Animated state */
+.scene.anim .tc-eyebrow,
+.scene.anim .tc-title,
+.scene.anim .tc-sub { opacity: 1; transform: none; }
+.scene.anim .tc-divider { width: 80px; }
+.scene.anim .tc-waternum { opacity: 1; }
+
+/* ══════════════════════════════════════════
+   SCENE: BIG NUMBER
+══════════════════════════════════════════ */
+.big-number {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  padding: 0 6%;
+}
+
+.bn-eyebrow {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--sky);
+  margin-bottom: 24px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease;
+}
+
+.bn-value-wrap {
+  display: flex;
+  align-items: flex-start;
+  opacity: 0;
+  transform: scale(0.88);
+  transition: all 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s;
+}
+
+.bn-value {
+  font-family: var(--serif);
+  font-size: 260px;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 0.85;
+}
+
+.bn-unit {
+  font-family: var(--serif);
+  font-size: 100px;
+  font-weight: 600;
+  color: var(--gold);
+  font-style: italic;
+  margin-top: 20px;
+}
+
+.bn-context {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--w50);
+  margin-top: 28px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease 0.7s;
+}
+
+.bn-formula {
+  margin-top: 24px;
+  padding: 16px 40px;
+  border: 1.5px solid rgba(0,182,255,0.2);
+  background: rgba(0,182,255,0.06);
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.75);
+  letter-spacing: 0.12em;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease 0.9s;
+}
+
+.bn-formula span { color: var(--sky); font-weight: 600; }
+
+.scene.anim .bn-eyebrow,
+.scene.anim .bn-context,
+.scene.anim .bn-formula { opacity: 1; transform: none; }
+.scene.anim .bn-value-wrap { opacity: 1; transform: scale(1); }
+
+/* ══════════════════════════════════════════
+   SCENE: BAR CHART
+══════════════════════════════════════════ */
+.bar-chart {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 6%;
+  gap: 24px;
+}
+
+.bc-header { opacity: 0; transform: translateY(12px); transition: all 0.6s ease; }
+.bc-title {
+  font-family: var(--serif);
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+.bc-source {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.75;
+}
+
+.bc-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  height: 380px;
+}
+
+.bc-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.bc-val {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--white);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  line-height: 1;
+}
+
+.bc-bar-outer {
+  width: 100%;
+  height: 340px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.bc-bar-inner {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.85s cubic-bezier(0.16,1,0.3,1);
+}
+
+.bc-city {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+}
+
+.scene.anim .bc-header { opacity: 1; transform: none; }
+.scene.anim .bc-bar-inner { transform: scaleY(1); }
+.scene.anim .bc-val { opacity: 1; }
+
+/* ══════════════════════════════════════════
+   SCENE: PROCESS STEPS
+══════════════════════════════════════════ */
+.process-steps {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 6%;
+  gap: 20px;
+}
+
+.ps-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.1;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease;
+}
+.ps-title em { font-style: italic; color: var(--gold); }
+
+.ps-steps { display: flex; flex-direction: column; gap: 10px; }
+
+.ps-step {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
+  border-left: 3px solid transparent;
+  border-radius: 0 3px 3px 0;
+  opacity: 0;
+  transform: translateX(-16px);
+  transition: all 0.45s cubic-bezier(0.16,1,0.3,1);
+}
+
+.ps-step.done {
+  border-left-color: rgba(0,182,255,0.5);
+  background: rgba(0,182,255,0.07);
+}
+.ps-step.active {
+  border-left-color: var(--gold);
+  background: rgba(200,169,110,0.1);
+}
+
+.ps-num {
+  font-family: var(--serif);
+  font-size: 42px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.15);
+  min-width: 50px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.ps-step.done .ps-num { color: rgba(0,182,255,0.6); }
+.ps-step.active .ps-num { color: var(--gold); }
+
+.ps-text {
+  font-family: var(--sans);
+  font-size: 22px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.3);
+  line-height: 1.3;
+}
+.ps-step.done .ps-text { color: rgba(255,255,255,0.45); }
+.ps-step.active .ps-text { color: var(--white); font-weight: 600; }
+
+.scene.anim .ps-title { opacity: 1; transform: none; }
+
+/* ══════════════════════════════════════════
+   SCENE: TEXT BULLETS
+══════════════════════════════════════════ */
+.text-bullets {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 6%;
+  gap: 20px;
+}
+
+.tb-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.1;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease;
+}
+
+.tb-items { display: flex; flex-direction: column; gap: 12px; }
+
+.tb-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 22px;
+  border-left: 3px solid rgba(200,169,110,0.4);
+  background: rgba(255,255,255,0.04);
+  opacity: 0;
+  transform: translateX(-16px);
+  transition: all 0.45s cubic-bezier(0.16,1,0.3,1);
+}
+
+.tb-num {
+  font-family: var(--serif);
+  font-size: 38px;
+  font-weight: 700;
+  color: var(--gold);
+  opacity: 0.6;
+  min-width: 46px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tb-text {
+  font-family: var(--sans);
+  font-size: 26px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.82);
+  line-height: 1.3;
+}
+
+.scene.anim .tb-title { opacity: 1; transform: none; }
+
+/* ══════════════════════════════════════════
+   SCENE: CTA SCREEN
+══════════════════════════════════════════ */
+.cta-screen {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  padding: 0 10%;
+}
+
+.cta-eyebrow {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.45em;
+  text-transform: uppercase;
+  color: var(--sky);
+  margin-bottom: 30px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease;
+}
+
+.cta-headline {
+  font-family: var(--serif);
+  font-size: 100px;
+  font-weight: 700;
+  color: var(--white);
+  line-height: 1.05;
+  margin-bottom: 30px;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: all 0.7s ease 0.2s;
+}
+.cta-headline em { font-style: italic; color: var(--gold); }
+
+.cta-divider {
+  width: 0;
+  height: 3px;
+  background: var(--gold);
+  margin: 0 auto 30px;
+  transition: width 0.6s ease 0.5s;
+}
+
+.cta-btn {
+  display: inline-block;
+  padding: 18px 60px;
+  border: 2px solid rgba(200,169,110,0.5);
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 20px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease 0.7s;
+}
+
+.cta-url {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  color: rgba(255,255,255,0.3);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.6s ease 0.9s;
+}
+
+.scene.anim .cta-eyebrow,
+.scene.anim .cta-headline,
+.scene.anim .cta-btn,
+.scene.anim .cta-url { opacity: 1; transform: none; }
+.scene.anim .cta-divider { width: 60px; }
+
+/* ══════════════════════════════════════════
+   SCENE: SPLIT SCREEN
+══════════════════════════════════════════ */
+.split-screen {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 5%;
+  gap: 20px;
+}
+
+.ss-title {
+  font-family: var(--serif);
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--white);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.6s ease;
+}
+
+.ss-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  flex: 1;
+}
+
+.ss-col {
+  padding: 30px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: all 0.55s cubic-bezier(0.16,1,0.3,1);
+}
+.ss-col.left  { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transform: translateX(-20px); }
+.ss-col.right { background: rgba(200,169,110,0.08); border: 1px solid rgba(200,169,110,0.3); transform: translateX(20px); }
+
+.ss-col-title {
+  font-family: var(--serif);
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  line-height: 1.1;
+}
+.ss-col.left  .ss-col-title { color: rgba(255,255,255,0.7); }
+.ss-col.right .ss-col-title { color: var(--gold); }
+
+.ss-sep { height: 1px; margin-bottom: 16px; opacity: 0.3; }
+.ss-col.left  .ss-sep { background: rgba(255,255,255,0.2); }
+.ss-col.right .ss-sep { background: var(--gold); }
+
+.ss-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.ss-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 8px; flex-shrink: 0; }
+.ss-col.left  .ss-dot { background: rgba(255,255,255,0.4); }
+.ss-col.right .ss-dot { background: var(--gold); }
+
+.ss-item-text {
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.35;
+}
+
+.scene.anim .ss-title { opacity: 1; transform: none; }
+.scene.anim .ss-col { opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<!-- PERSISTENT FRAME -->
+<div class="frame">
+  <div class="top-bar"></div>
+  <div class="rule-top"></div>
+  <div class="rule-bot"></div>
+  <div class="logo">Rodschinson Investment</div>
+</div>
+
+<!-- GEOMETRY SVG -->
+<svg class="geo" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+  <line x1="0" y1="540" x2="1920" y2="540" stroke="#00B6FF" stroke-width="1"/>
+  <line x1="960" y1="0" x2="960" y2="1080" stroke="#00B6FF" stroke-width="1"/>
+  <rect x="560" y="140" width="800" height="800" fill="none" stroke="#00B6FF" stroke-width="0.8" transform="rotate(15 960 540)"/>
+  <rect x="380" y="40" width="1160" height="1000" fill="none" stroke="#00B6FF" stroke-width="0.6" transform="rotate(30 960 540)"/>
+  <circle cx="960" cy="540" r="360" fill="none" stroke="#00B6FF" stroke-width="0.8"/>
+  <circle cx="960" cy="540" r="520" fill="none" stroke="#00B6FF" stroke-width="0.5"/>
+  <line x1="200" y1="0" x2="960" y2="540" stroke="#C8A96E" stroke-width="0.6"/>
+  <line x1="1720" y1="0" x2="960" y2="540" stroke="#C8A96E" stroke-width="0.6"/>
+  <line x1="200" y1="1080" x2="960" y2="540" stroke="#C8A96E" stroke-width="0.6"/>
+  <line x1="1720" y1="1080" x2="960" y2="540" stroke="#C8A96E" stroke-width="0.6"/>
+</svg>
+
+<!-- SCENE CONTAINER - populated by JavaScript -->
+<div id="scene-container"></div>
+
+<script>
+// -- SCENE REGISTRY ------------------------------------------------------------
+// Populated by renderer with scene data from JSON script
+
+
+// Normalize field names from different Claude API response formats
+function normBN(d) {
+  if (d.chiffre_principal) {
+    const raw = String(d.chiffre_principal).replace(/[%KMB+]/g,'').replace(/€/g,'').trim();
+    const unit = d.chiffre_principal.includes('%') ? '%' :
+                 d.chiffre_principal.includes('€') ? '€' :
+                 d.chiffre_principal.includes('M') ? 'M€' : '';
+    d.valeur = raw;
+    d.unite  = unit;
+  }
+  if (d.chiffre_secondaire && !d.contexte) d.contexte = d.chiffre_secondaire;
+  if (!d.valeur)   d.valeur  = String(d.nombre || d.value || d.number || 0);
+  if (!d.unite)    d.unite   = d.unit || d.unité || '%';
+  if (!d.eyebrow)  d.eyebrow = d.label || d.titre || '';
+  if (!d.contexte) d.contexte = d.description || d.subtitle || '';
+  if (!d.formule)  d.formule  = d.formula || d.calcul || '';
+  return d;
+}
+
+function normTC(d) {
+  if (!d.titre_principal) d.titre_principal = d.titre || d.title || d.headline || '';
+  if (!d.sous_titre)      d.sous_titre      = d.subtitle || d.sous_titre || '';
+  if (!d.eyebrow)         d.eyebrow         = d.location || 'Brussels · Dubai · Casablanca';
+  if (!d.scene_number)    d.scene_number    = d.numero || '01';
+  return d;
+}
+
+function normBC(d) {
+  if (!d.series || !d.series.length) {
+    d.series = (d.donnees || d.data || d.bars || []).map(b => ({
+      label:  b.label || b.ville || b.city || b.name || '',
+      valeur: parseFloat(b.valeur || b.value || b.taux || 0),
+      couleur: b.couleur || b.color || ''
+    }));
+  }
+  if (!d.titre) d.titre = d.title || d.headline || '';
+  if (!d.source) d.source = d.sources || 'Source : CBRE / JLL — Rodschinson Investment';
+  if (!d.unite) d.unite = d.unit || '%';
+  return d;
+}
+
+function normPS(d) {
+  if (!d.etapes || !d.etapes.length) {
+    d.etapes = (d.steps || d.items || d.points || []).map(s => 
+      typeof s === 'string' ? s : (s.texte || s.text || s.label || '')
+    );
+  }
+  if (!d.titre) d.titre = d.title || d.headline || '';
+  if (d.active === undefined) d.active = d.etape_active || d.current || 0;
+  return d;
+}
+
+function normTB(d) {
+  if (!d.items || !d.items.length) {
+    d.items = (d.points || d.bullets || d.liste || []).map(i =>
+      typeof i === 'string' ? i : (i.texte || i.text || i.label || '')
+    );
+  }
+  if (!d.titre) d.titre = d.title || d.headline || '';
+  return d;
+}
+
+function normCTA(d) {
+  if (!d.headline) d.headline = d.titre || d.title || d.cta_text || '';
+  if (!d.cta_text) d.cta_text = d.bouton || d.button || d.cta || 'Consultation Gratuite — 30 min';
+  if (!d.url)      d.url      = d.site || d.link || 'rodschinson.com';
+  if (!d.eyebrow)  d.eyebrow  = d.brand || 'Rodschinson Investment';
+  return d;
+}
+
+const SCENE_BUILDERS = {
+
+  title_card: (data) => { data = normTC(data); return  `
+    <div class="scene title-card" id="scene">
+      <div class="tc-eyebrow">${data.eyebrow || 'Brussels · Dubai · Casablanca'}</div>
+      <div class="tc-title">${formatTitle(data.titre_principal || '')}</div>
+      <div class="tc-divider"></div>
+      <div class="tc-sub">${data.sous_titre || ''}</div>
+      <div class="tc-waternum">${String(data.scene_number || '01').padStart(2,'0')}</div>
+    </div>`,
+
+  big_number: (data) => { data = normBN(data); return  `
+    <div class="scene big-number" id="scene">
+      <div class="bn-eyebrow">${data.eyebrow || ''}</div>
+      <div class="bn-value-wrap">
+        <div class="bn-value" id="bn-counter">${data.valeur || '0'}</div>
+        <div class="bn-unit">${data.unite || '%'}</div>
+      </div>
+      <div class="bn-context">${data.contexte || ''}</div>
+      ${data.formule ? `<div class="bn-formula">${formatFormula(data.formule)}</div>` : ''}
+    </div>`,
+
+  bar_chart: (data) => { data = normBC(data);
+    const series = data.series || [];
+    const maxVal = Math.max(...series.map(s => s.valeur), 1);
+    const COLORS = ['rgba(255,255,255,0.85)', 'rgba(208,232,255,0.85)', '#00B6FF', '#C8A96E', '#B8894E'];
+    const bars = series.map((s, i) => {
+      const h = (s.valeur / maxVal * 100).toFixed(1);
+      const color = s.couleur || COLORS[i % COLORS.length];
+      const grad = `linear-gradient(180deg, ${color} 0%, ${color.replace(')', ', 0.2)').replace('rgb','rgba')} 100%)`;
+      return `
+        <div class="bc-bar-wrap">
+          <div class="bc-val">${s.valeur.toFixed(1)}${data.unite||'%'}</div>
+          <div class="bc-bar-outer">
+            <div class="bc-bar-inner" style="height:${h}%;background:${grad}"></div>
+          </div>
+          <div class="bc-city">${s.label}</div>
+        </div>`;
+    }).join('');
+    return `
+      <div class="scene bar-chart" id="scene">
+        <div class="bc-header">
+          <div class="bc-title">${data.titre || ''}</div>
+          <div class="bc-source">${data.source || ''}</div>
+        </div>
+        <div class="bc-bars">${bars}</div>
+      </div>`;
+  },
+
+  process_steps: (data) => { data = normPS(data);
+    const etapes = data.etapes || [];
+    const active = data.active || 0;
+    const steps = etapes.map((text, i) => {
+      const cls = i < active ? 'done' : (i === active ? 'active' : '');
+      return `
+        <div class="ps-step ${cls}" data-index="${i}">
+          <div class="ps-num">0${i+1}</div>
+          <div class="ps-text">${text}</div>
+        </div>`;
+    }).join('');
+    return `
+      <div class="scene process-steps" id="scene">
+        <div class="ps-title">${formatTitle(data.titre || '')}</div>
+        <div class="ps-steps">${steps}</div>
+      </div>`;
+  },
+
+  text_bullets: (data) => { data = normTB(data);
+    const items = data.items || [];
+    const bullets = items.map((text, i) => `
+      <div class="tb-item" data-index="${i}">
+        <div class="tb-num">0${i+1}</div>
+        <div class="tb-text">${text}</div>
+      </div>`).join('');
+    return `
+      <div class="scene text-bullets" id="scene">
+        <div class="tb-title">${data.titre || ''}</div>
+        <div class="tb-items">${bullets}</div>
+      </div>`;
+  },
+
+  cta_screen: (data) => { data = normCTA(data); return  `
+    <div class="scene cta-screen" id="scene">
+      <div class="cta-eyebrow">${data.eyebrow || 'Rodschinson Investment'}</div>
+      <div class="cta-headline">${formatTitle(data.headline || '')}</div>
+      <div class="cta-divider"></div>
+      <div class="cta-btn">${data.cta_text || 'Consultation Gratuite — 30 min'}</div>
+      <div class="cta-url">${data.url || 'rodschinson.com'}</div>
+    </div>`,
+
+  split_screen: (data) => { data = normCTA(data);
+    const left  = data.colonne_gauche || {};
+    const right = data.colonne_droite || {};
+    const mkItems = (col) => (col.items || []).map(item => `
+      <div class="ss-item">
+        <div class="ss-dot"></div>
+        <div class="ss-item-text">${item}</div>
+      </div>`).join('');
+    return `
+      <div class="scene split-screen" id="scene">
+        <div class="ss-title">${data.titre || ''}</div>
+        <div class="ss-cols">
+          <div class="ss-col left">
+            <div class="ss-col-title">${left.titre || ''}</div>
+            <div class="ss-sep"></div>
+            ${mkItems(left)}
+          </div>
+          <div class="ss-col right">
+            <div class="ss-col-title">${right.titre || ''}</div>
+            <div class="ss-sep"></div>
+            ${mkItems(right)}
+          </div>
+        </div>
+      </div>`;
+  },
+
+  comparison_table: (data) => `
+    <div class="scene split-screen" id="scene">
+      <div class="ss-title">${data.titre || ''}</div>
+      <div class="ss-cols">
+        <div class="ss-col left">
+          <div class="ss-col-title">${(data.colonnes||[])[0]||''}</div>
+          <div class="ss-sep"></div>
+          ${(data.lignes||[]).map(r=>`<div class="ss-item"><div class="ss-dot"></div><div class="ss-item-text">${r[0]||''}</div></div>`).join('')}
+        </div>
+        <div class="ss-col right">
+          <div class="ss-col-title">${(data.colonnes||[])[1]||''}</div>
+          <div class="ss-sep"></div>
+          ${(data.lignes||[]).map(r=>`<div class="ss-item"><div class="ss-dot"></div><div class="ss-item-text">${r[1]||''}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>`,
+
+  quote_card: (data) => `
+    <div class="scene cta-screen" id="scene">
+      <div class="cta-eyebrow">${data.auteur || ''}</div>
+      <div class="cta-headline" style="font-size:72px;font-style:italic">"${data.citation || ''}"</div>
+      <div class="cta-divider"></div>
+      <div class="cta-url">${data.source || ''}</div>
+    </div>`,
+};
+
+// -- HELPERS ------------------------------------------------------------------
+
+function formatTitle(text) {
+  return text.replace(/\*([^*]+)\*/g, '<em>$1</em>').replace(/\n/g, '<br>');
+}
+
+function formatFormula(text) {
+  const nums = text.match(/[\d.,]+\s*[€%KM]*/g) || [];
+  let result = text;
+  nums.forEach(n => {
+    result = result.replace(n, `<span>${n}</span>`);
+  });
+  return result;
+}
+
+// -- MAIN API (called by Puppeteer) --------------------------------------------
+
+window.loadScene = function(sceneData) {
+  const container = document.getElementById('scene-container');
+  const type = sceneData.type_visuel;
+  const visuel = sceneData.visuel || {};
+  const builder = SCENE_BUILDERS[type];
+
+  if (!builder) {
+    console.error('Unknown scene type:', type);
+    return false;
+  }
+
+  container.innerHTML = builder(visuel);
+  return true;
+};
+
+window.animateScene = function() {
+  const scene = document.getElementById('scene');
+  if (!scene) return;
+
+  // Trigger CSS transitions
+  requestAnimationFrame(() => {
+    scene.classList.add('active');
+    setTimeout(() => scene.classList.add('anim'), 50);
+
+    // Stagger process steps / bullets
+    const steps = scene.querySelectorAll('.ps-step, .tb-item');
+    steps.forEach((el, i) => {
+      setTimeout(() => el.style.cssText += 'opacity:1;transform:none;', 200 + i * 180);
+    });
+
+    // Show final value immediately (Puppeteer frame capture)
+    const counter = document.getElementById('bn-counter');
+    if (counter) {
+      const raw = parseFloat(counter.textContent) || 0;
+      counter.textContent = Number.isInteger(raw) ? String(Math.round(raw)) : raw.toFixed(1);
+    }
+  });
+};
+
+window.isAnimationComplete = function(minDuration) {
+  return new Promise(resolve => setTimeout(resolve, minDuration || 1500));
+};
+</script>
+</body>
+</html>

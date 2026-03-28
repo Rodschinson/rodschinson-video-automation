@@ -1,0 +1,7 @@
+{
+  "venvPath": "/Users/yacerelfatihy",
+  "venv": "rodschinson-venv311",
+  "pythonVersion": "3.11",
+  "include": ["backend"],
+  "exclude": ["frontend", "output", "puppeteer"]
+}

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Bebas+Neue&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --dark:   #020b14;
+  --sky:    #00B6FF;
+  --gold:   #C8A96E;
+  --white:  #FFFFFF;
+  --green:  #00FF88;
+  --red:    #FF3232;
+  --sans:   'Space Grotesk', sans-serif;
+  --bebas:  'Bebas Neue', sans-serif;
+}
+
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--dark);
+  font-family: var(--sans);
+  color: var(--white);
+}
+
+.frame { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+
+.grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,182,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,182,255,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridPulse 4s ease-in-out infinite;
+}
+@keyframes gridPulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+
+.scan-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,182,255,0.3), transparent);
+  animation: scanAnim 6s linear infinite;
+}
+@keyframes scanAnim { 0%{top:0;opacity:0} 5%{opacity:1} 95%{opacity:1} 100%{top:100%;opacity:0} }
+
+.header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: rgba(2,11,20,0.95);
+  border-bottom: 1px solid rgba(0,182,255,0.15);
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  gap: 24px;
+}
+
+.hd-brand {
+  font-family: var(--bebas);
+  font-size: 26px;
+  color: var(--sky);
+  letter-spacing: 0.08em;
+}
+.hd-sep { width: 1px; height: 24px; background: rgba(0,182,255,0.2); }
+.hd-index { font-size: 12px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(0,182,255,0.5); }
+.hd-time { margin-left: auto; font-family: var(--bebas); font-size: 22px; color: rgba(0,182,255,0.5); letter-spacing: 0.1em; }
+
+.footer {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 36px;
+  background: rgba(2,11,20,0.95);
+  border-top: 1px solid rgba(0,182,255,0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  gap: 40px;
+}
+.ft-item { font-size: 11px; font-weight: 500; letter-spacing: 0.15em; color: rgba(0,182,255,0.35); text-transform: uppercase; }
+.ft-item span { color: var(--sky); margin-left: 8px; }
+
+/* SCENE */
+.scene {
+  position: absolute;
+  top: 56px; left: 0; right: 0; bottom: 36px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.scene.active { display: flex; }
+
+/* TITLE */
+.tech-title {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  padding: 0 8%;
+}
+
+.tt-pre {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  color: rgba(0,182,255,0.6);
+  margin-bottom: 24px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.tt-title {
+  font-family: var(--bebas);
+  font-size: 120px;
+  color: var(--white);
+  letter-spacing: 0.04em;
+  line-height: 0.9;
+  margin-bottom: 24px;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: all 0.7s cubic-bezier(0.16,1,0.3,1) 0.2s;
+}
+.tt-title .accent { color: var(--sky); }
+
+.tt-line {
+  width: 0;
+  height: 2px;
+  background: var(--sky);
+  margin: 0 auto 20px;
+  transition: width 0.6s ease 0.5s;
+}
+
+.tt-sub {
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.4);
+  opacity: 0;
+  transition: opacity 0.5s ease 0.7s;
+}
+
+.scene.anim .tt-pre,
+.scene.anim .tt-sub { opacity: 1; }
+.scene.anim .tt-title { opacity: 1; transform: scale(1); }
+.scene.anim .tt-line { width: 120px; }
+
+/* BIG NUMBER */
+.tech-number {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.tn-label {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: rgba(0,182,255,0.6);
+  margin-bottom: 20px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.tn-num {
+  font-family: var(--bebas);
+  font-size: 320px;
+  color: var(--white);
+  line-height: 0.85;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s;
+}
+.tn-num .unit { color: var(--sky); font-size: 0.38em; vertical-align: super; }
+
+.tn-context {
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  margin-top: 20px;
+  opacity: 0;
+  transition: opacity 0.5s ease 0.7s;
+}
+
+.tn-formula {
+  margin-top: 20px;
+  padding: 14px 36px;
+  border: 1px solid rgba(0,182,255,0.2);
+  background: rgba(0,182,255,0.05);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.6);
+  opacity: 0;
+  transition: opacity 0.5s ease 0.9s;
+}
+.tn-formula .hl { color: var(--sky); font-weight: 600; }
+
+.scene.anim .tn-label,
+.scene.anim .tn-context,
+.scene.anim .tn-formula { opacity: 1; }
+.scene.anim .tn-num { opacity: 1; transform: scale(1); }
+
+/* BAR CHART */
+.tech-chart {
+  flex-direction: column;
+  padding: 0 60px;
+  gap: 24px;
+  width: 100%;
+}
+
+.tc-head { opacity: 0; transition: opacity 0.5s ease; }
+.tc-title { font-family: var(--bebas); font-size: 52px; color: var(--white); letter-spacing: 0.04em; margin-bottom: 4px; }
+.tc-source { font-size: 13px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(0,182,255,0.5); }
+
+.tc-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  height: 400px;
+}
+
+.tc-bw { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1; }
+.tc-val { font-family: var(--bebas); font-size: 36px; color: var(--sky); letter-spacing: 0.05em; opacity: 0; transition: opacity 0.4s ease 0.85s; }
+.tc-bo { width: 100%; height: 360px; background: rgba(0,182,255,0.06); border: 1px solid rgba(0,182,255,0.1); display: flex; align-items: flex-end; overflow: hidden; }
+.tc-bi { width: 100%; transform: scaleY(0); transform-origin: bottom; transition: transform 0.85s cubic-bezier(0.16,1,0.3,1); }
+.tc-city { font-size: 13px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(0,182,255,0.5); }
+
+.scene.anim .tc-head { opacity: 1; }
+.scene.anim .tc-bi { transform: scaleY(1); }
+.scene.anim .tc-val { opacity: 1; }
+
+/* PROCESS */
+.tech-process {
+  flex-direction: column;
+  padding: 0 60px;
+  gap: 20px;
+  width: 100%;
+}
+
+.tp-title { font-family: var(--bebas); font-size: 60px; color: var(--white); letter-spacing: 0.04em; opacity: 0; transition: opacity 0.5s ease; }
+
+.tp-steps { display: flex; flex-direction: column; gap: 10px; }
+.tp-step {
+  display: flex; align-items: center; gap: 24px;
+  padding: 18px 24px;
+  border: 1px solid rgba(0,182,255,0.08);
+  background: rgba(0,182,255,0.03);
+  opacity: 0; transform: translateX(-12px);
+  transition: all 0.45s ease;
+}
+.tp-step.active { border-color: rgba(0,182,255,0.3); background: rgba(0,182,255,0.08); }
+.tp-step.done { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.04); }
+
+.tp-num { font-family: var(--bebas); font-size: 48px; color: rgba(0,182,255,0.3); min-width: 52px; line-height: 1; }
+.tp-step.active .tp-num { color: var(--sky); }
+.tp-step.done .tp-num { color: var(--green); }
+
+.tp-text { font-size: 22px; font-weight: 500; color: rgba(255,255,255,0.35); }
+.tp-step.active .tp-text { color: var(--white); font-weight: 600; }
+.tp-step.done .tp-text { color: rgba(255,255,255,0.5); }
+
+.scene.anim .tp-title { opacity: 1; }
+
+/* CTA */
+.tech-cta {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+}
+
+.tca-pre { font-size: 14px; font-weight: 600; letter-spacing: 0.5em; text-transform: uppercase; color: rgba(0,182,255,0.6); opacity: 0; transition: opacity 0.5s ease; }
+.tca-headline { font-family: var(--bebas); font-size: 110px; color: var(--white); line-height: 0.9; letter-spacing: 0.04em; opacity: 0; transform: scale(0.92); transition: all 0.7s ease 0.2s; }
+.tca-headline .hl { color: var(--sky); }
+.tca-line { width: 0; height: 2px; background: var(--sky); margin: 0 auto; transition: width 0.6s ease 0.5s; }
+.tca-btn { padding: 16px 56px; border: 2px solid rgba(0,182,255,0.4); font-size: 16px; font-weight: 600; letter-spacing: 0.3em; text-transform: uppercase; color: var(--sky); opacity: 0; transition: opacity 0.5s ease 0.7s; }
+.tca-url { font-size: 16px; font-weight: 400; letter-spacing: 0.2em; color: rgba(0,182,255,0.35); opacity: 0; transition: opacity 0.5s ease 0.9s; }
+
+.scene.anim .tca-pre,
+.scene.anim .tca-btn,
+.scene.anim .tca-url { opacity: 1; }
+.scene.anim .tca-headline { opacity: 1; transform: scale(1); }
+.scene.anim .tca-line { width: 80px; }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="scan-line"></div>
+
+<div class="frame">
+  <div class="header">
+    <div class="hd-brand">RODSCHINSON · MARKET DATA</div>
+    <div class="hd-sep"></div>
+    <div class="hd-index" id="hd-index">CRE INDEX · EMEA 2025</div>
+    <div class="hd-time" id="hd-time">14:32:05</div>
+  </div>
+  <div class="footer">
+    <div class="ft-item">Paris Prime <span id="ft-paris">3.8%</span></div>
+    <div class="ft-item">Dubai <span id="ft-dubai">5.8%</span></div>
+    <div class="ft-item">Casablanca <span id="ft-casa">7.5%</span></div>
+    <div class="ft-item">Source <span>CBRE / JLL 2025</span></div>
+  </div>
+</div>
+
+<div id="scene-container"></div>
+
+<script>
+function updateClock() {
+  const now = new Date();
+  document.getElementById('hd-time').textContent =
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+const COLORS = ['rgba(255,255,255,0.85)', 'rgba(180,220,255,0.85)', '#00B6FF', '#C8A96E', '#00FF88'];
+
+const SCENE_BUILDERS = {
+  title_card: (d) => `
+    <div class="scene tech-title" id="scene">
+      <div class="tt-pre">${d.eyebrow||'Brussels · Dubai · Casablanca'}</div>
+      <div class="tt-title">${(d.titre_principal||'').replace(/\n/g,'<br>').replace(/\*([^*]+)\*/g,'<span class="accent">$1</span>')}</div>
+      <div class="tt-line"></div>
+      <div class="tt-sub">${d.sous_titre||''}</div>
+    </div>`,
+
+  big_number: (d) => `
+    <div class="scene tech-number" id="scene">
+      <div class="tn-label">${d.eyebrow||''}</div>
+      <div class="tn-num"><span id="bn-counter">${d.valeur||'0'}</span><span class="unit">${d.unite||'%'}</span></div>
+      <div class="tn-context">${d.contexte||''}</div>
+      ${d.formule?`<div class="tn-formula">${d.formule.replace(/(\d[\d.,]*\s*[€%KMB]*)/g,'<span class="hl">$1</span>')}</div>`:''}
+    </div>`,
+
+  bar_chart: (d) => {
+    const s = d.series||[];
+    const mx = Math.max(...s.map(x=>x.valeur),1);
+    return `
+      <div class="scene tech-chart" id="scene">
+        <div class="tc-head">
+          <div class="tc-title">${d.titre||''}</div>
+          <div class="tc-source">${d.source||''}</div>
+        </div>
+        <div class="tc-bars">
+          ${s.map((b,i)=>`
+          <div class="tc-bw">
+            <div class="tc-val">${b.valeur.toFixed(1)}${d.unite||'%'}</div>
+            <div class="tc-bo"><div class="tc-bi" style="height:${(b.valeur/mx*100).toFixed(1)}%;background:linear-gradient(180deg,${COLORS[i%COLORS.length]} 0%,rgba(0,182,255,0.1) 100%)"></div></div>
+            <div class="tc-city">${b.label}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  },
+
+  process_steps: (d) => {
+    const e = d.etapes||[]; const a = d.active||0;
+    return `
+      <div class="scene tech-process" id="scene">
+        <div class="tp-title">${(d.titre||'').replace(/\n/g,' ')}</div>
+        <div class="tp-steps">
+          ${e.map((t,i)=>`
+          <div class="tp-step ${i<a?'done':i===a?'active':''}" data-index="${i}">
+            <div class="tp-num">${String(i+1).padStart(2,'0')}</div>
+            <div class="tp-text">${t}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  },
+
+  text_bullets: (d) => {
+    const items = d.items||[];
+    return `
+      <div class="scene tech-process" id="scene">
+        <div class="tp-title">${d.titre||''}</div>
+        <div class="tp-steps">
+          ${items.map((t,i)=>`
+          <div class="tp-step active" data-index="${i}">
+            <div class="tp-num" style="color:var(--sky)">${String(i+1).padStart(2,'0')}</div>
+            <div class="tp-text" style="color:rgba(255,255,255,0.82)">${t}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  },
+
+  cta_screen: (d) => `
+    <div class="scene tech-cta" id="scene">
+      <div class="tca-pre">${d.eyebrow||'Rodschinson Investment'}</div>
+      <div class="tca-headline">${(d.headline||d.cta_text||'').replace(/\n/g,'<br>').replace(/\*([^*]+)\*/g,'<span class="hl">$1</span>')}</div>
+      <div class="tca-line"></div>
+      <div class="tca-btn">${d.cta_text||'Consultation Gratuite'}</div>
+      <div class="tca-url">${d.url||'rodschinson.com'} · Brussels · Dubai · Casablanca</div>
+    </div>`,
+
+  split_screen: (d) => {
+    const l = d.colonne_gauche||{}, r = d.colonne_droite||{};
+    return `
+      <div class="scene tech-process" id="scene">
+        <div class="tp-title">${d.titre||''}</div>
+        <div class="tp-steps" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <div style="font-size:14px;font-weight:600;letter-spacing:.2em;color:rgba(0,182,255,.5);text-transform:uppercase;margin-bottom:12px">${l.titre||''}</div>
+            ${(l.items||[]).map((t,i)=>`<div class="tp-step" data-index="${i}" style="margin-bottom:8px"><div class="tp-num">${String(i+1).padStart(2,'0')}</div><div class="tp-text">${t}</div></div>`).join('')}
+          </div>
+          <div>
+            <div style="font-size:14px;font-weight:600;letter-spacing:.2em;color:var(--sky);text-transform:uppercase;margin-bottom:12px">${r.titre||''}</div>
+            ${(r.items||[]).map((t,i)=>`<div class="tp-step active" data-index="${i}" style="margin-bottom:8px"><div class="tp-num" style="color:var(--sky)">${String(i+1).padStart(2,'0')}</div><div class="tp-text" style="color:#fff">${t}</div></div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  },
+};
+
+window.loadScene = function(sd) {
+  const b = SCENE_BUILDERS[sd.type_visuel];
+  if (!b) { console.error('Unknown:', sd.type_visuel); return false; }
+  document.getElementById('scene-container').innerHTML = b(sd.visuel||{});
+  return true;
+};
+
+window.animateScene = function() {
+  const sc = document.getElementById('scene');
+  if (!sc) return;
+  requestAnimationFrame(() => {
+    sc.classList.add('active');
+    setTimeout(() => {
+      sc.classList.add('anim');
+      sc.querySelectorAll('.tp-step').forEach((el,i) => {
+        setTimeout(() => { el.style.opacity='1'; el.style.transform='none'; }, 150 + i*130);
+      });
+      const c = document.getElementById('bn-counter');
+      if (c) {
+        const t = parseFloat(c.textContent)||0;
+        let v = 0; const inc = t/60;
+        const iv = setInterval(() => {
+          v = Math.min(v+inc, t);
+          c.textContent = Number.isInteger(t) ? Math.round(v) : v.toFixed(1);
+          if (v>=t) clearInterval(iv);
+        }, 25);
+      }
+    }, 50);
+  });
+};
+
+window.isAnimationComplete = function(ms) {
+  return new Promise(r => setTimeout(r, ms||1500));
+};
+</script>
+</body>
+</html>
