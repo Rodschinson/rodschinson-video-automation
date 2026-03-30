@@ -188,33 +188,65 @@ FORMATS = {
 TEMPLATE_HINTS = {
     "rodschinson_premium": {
         "style": "Dark blue #08316F + gold #C8A96E + sky blue #00B6FF. Corporate, authoritative, data-rich.",
-        "best_types": ["title_card", "big_number", "bar_chart", "text_bullets", "process_steps", "cta_screen"],
-        "avoid": [],
         "tone": "Institutional, precise, investment-grade. Numbers front and center.",
+        "supported_types": ["title_card", "big_number", "bar_chart", "text_bullets", "process_steps", "cta_screen"],
+        "schemas": {
+            "title_card": '{"titre_principal": "Le Cap Rate Immobilier Commercial", "sous_titre": "KPI fondamental des marchés EMEA 2025", "eyebrow": "Brussels · Dubai · Casablanca"}',
+            "big_number": '{"valeur": "5,75", "unite": "%", "eyebrow": "Cap Rate bureaux prime Dubai", "contexte": "Source : JLL Research Q1 2025", "formule": "NOI annuel ÷ Valeur de marché"}',
+            "bar_chart":  '{"titre": "Cap Rate par marché — Bureaux prime 2025", "series": [{"label": "Paris", "valeur": 3.75}, {"label": "Dubai", "valeur": 5.75}, {"label": "Casablanca", "valeur": 7.5}], "unite": "%", "source": "Source : CBRE / JLL — 2025"}',
+            "text_bullets": '{"titre": "Les 3 erreurs sur le Cap Rate", "items": ["Confondre revenu brut et NOI", "Ignorer la vacance locative", "Comparer des marchés incomparables"]}',
+            "process_steps": '{"titre": "Due Diligence en 5 étapes", "etapes": ["Analyse financière", "Audit technique", "Due diligence légale", "Négociation prix", "Closing & transfert"]}',
+            "cta_screen": '{"eyebrow": "Rodschinson Investment", "headline": "Votre prochain actif CRE vous attend", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"}',
+        },
     },
     "cre": {
-        "style": "Very dark #080E1A + electric cyan #00E5C8. CRE-focused, premium, terminal aesthetic.",
-        "best_types": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"],
-        "avoid": ["pie_chart", "world_map", "icon_grid", "timeline"],
-        "tone": "Stat-heavy, market data, cap rates / yields / IRR. Keep scenes to 3-5 max. Each scene = one key number or insight.",
+        "style": "Very dark #080E1A + electric cyan #00E5C8. CRE market data terminal aesthetic.",
+        "tone": "Stat-heavy. Each scene = one headline insight + supporting data. Max 4-5 scenes total.",
+        "supported_types": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"],
+        "schemas": {
+            "title_card": '{"titre_principal": "Cap Rate Europe 2025 : Ce que les chiffres révèlent", "sous_titre": "Analyse CBRE / JLL — Marchés prime EMEA", "eyebrow": "Rodschinson Investment"}',
+            "big_number": '{"valeur": "2,8", "unite": "Mds €", "eyebrow": "Volume transactions CRE Europe Q1 2025", "contexte": "−18 % vs Q1 2024 — Source : JLL"}',
+            "bar_chart":  '{"titre": "Rendements prime par segment — 2025", "series": [{"label": "Logistique", "valeur": 4.75}, {"label": "Bureaux Grade A", "valeur": 5.1}, {"label": "Retail prime", "valeur": 5.8}], "unite": "%", "source": "Source : CBRE Research 2025"}',
+            "text_bullets": '{"titre": "Facteurs de compression des rendements", "items": ["Hausse des taux BCE freine la dette", "Rareté du foncier prime en Europe", "Demande locative soutenue secteur logistique"]}',
+            "cta_screen": '{"headline": "Accédez aux opportunités CRE avant le marché", "body": "Analyse propriétaire · Deal flow exclusif · Brussels · Dubai · Casablanca", "cta_text": "rodschinson.com", "hashtags": ["#CRE", "#ImmobilierCommercial", "#Investissement"]}',
+        },
     },
     "news_reel": {
-        "style": "Dark red #2d0f0f + bright red #FF4444 + white. Breaking news, Al-Jazeera style with ticker.",
-        "best_types": ["title_card", "big_number", "text_bullets", "bar_chart", "quote_card", "cta_screen"],
-        "avoid": ["process_steps", "icon_grid"],
-        "tone": "Urgent, journalistic, headline-driven. Short punchy sentences. Use 'BREAKING' or 'EXCLUSIVE' framing.",
+        "style": "Dark red #2d0f0f + bright red #FF4444. Breaking news, Al-Jazeera style.",
+        "tone": "Urgent, journalistic. Short punchy sentences. Use BREAKING / FLASH framing.",
+        "supported_types": ["title_card", "big_number", "text_bullets", "bar_chart", "quote_card", "cta_screen"],
+        "schemas": {
+            "title_card":  '{"titre_principal": "FLASH — Marchés CRE Europe en mutation", "sous_titre": "Analyse exclusive Rodschinson Investment", "eyebrow": "BREAKING"}',
+            "big_number":  '{"valeur": "−18", "unite": "%", "eyebrow": "Volumes transactions CRE Europe", "contexte": "Q1 2025 vs Q1 2024 — Source JLL"}',
+            "text_bullets":'{"titre": "3 signaux à surveiller", "items": ["Taux BCE : pivot attendu T3 2025", "Bureaux prime : pénurie offre Paris/Dubai", "Logistique : rendements sous pression"]}',
+            "bar_chart":   '{"titre": "Rendements prime 2025", "series": [{"label": "Paris", "valeur": 3.75}, {"label": "Dubai", "valeur": 5.5}, {"label": "Varsovie", "valeur": 6.25}], "unite": "%", "source": "Source : JLL 2025"}',
+            "cta_screen":  '{"eyebrow": "Rodschinson Investment", "headline": "Restez en avance sur le marché", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"}',
+        },
     },
     "tech_data": {
-        "style": "Very dark blue #031520 + sky blue #00B6FF. Bloomberg/data terminal aesthetic.",
-        "best_types": ["title_card", "big_number", "bar_chart", "line_chart", "comparison_table", "text_bullets", "cta_screen"],
-        "avoid": ["quote_card"],
-        "tone": "Analytical, data-grid heavy, financial terminal style. Maximize use of charts and comparison tables.",
+        "style": "Very dark blue #031520 + sky blue #00B6FF. Bloomberg/data terminal.",
+        "tone": "Analytical, data-grid heavy. Maximize charts and comparison tables.",
+        "supported_types": ["title_card", "big_number", "bar_chart", "comparison_table", "text_bullets", "cta_screen"],
+        "schemas": {
+            "title_card":    '{"titre_principal": "CRE Data Terminal — Europe 2025", "sous_titre": "Rendements · Volumes · Tendances", "eyebrow": "Rodschinson Investment Data"}',
+            "big_number":    '{"valeur": "5,1", "unite": "%", "eyebrow": "Rendement moyen bureaux EMEA", "contexte": "+40 bps vs 2024 — Données JLL"}',
+            "bar_chart":     '{"titre": "Cap Rate par ville — Q1 2025", "series": [{"label": "Paris", "valeur": 3.75}, {"label": "Amsterdam", "valeur": 4.9}, {"label": "Dubai", "valeur": 5.75}, {"label": "Warsaw", "valeur": 6.5}], "unite": "%", "source": "JLL / CBRE 2025"}',
+            "comparison_table": '{"titre": "Bureaux vs Logistique 2025", "colonnes": ["Bureaux prime", "Logistique prime"], "lignes": [["Cap Rate 3.75–5.5%", "Cap Rate 4.5–6%"], ["Vacance 8–12%", "Vacance 3–5%"], ["Bail 6–9 ans", "Bail 10–15 ans"]]}',
+            "text_bullets":  '{"titre": "Drivers de rendement 2025", "items": ["Normalisation taux BCE", "Rareté offre prime", "ESG premium sur actifs verts"]}',
+            "cta_screen":    '{"eyebrow": "Rodschinson Investment", "headline": "Accédez à notre data room propriétaire", "cta_text": "Demo Gratuite — 30 min", "url": "rodschinson.com"}',
+        },
     },
     "corporate_minimal": {
-        "style": "White/near-black, clean editorial. Suited for thought leadership.",
-        "best_types": ["title_card", "text_bullets", "quote_card", "process_steps", "split_screen", "cta_screen"],
-        "avoid": ["bar_chart", "line_chart"],
-        "tone": "Clean, editorial, thought-leadership. Less data, more story and insight.",
+        "style": "White/near-black, clean editorial. Thought leadership.",
+        "tone": "Clean, editorial, story-led. Less data, more insight and narrative.",
+        "supported_types": ["title_card", "text_bullets", "quote_card", "process_steps", "split_screen", "cta_screen"],
+        "schemas": {
+            "title_card":   '{"titre_principal": "Pourquoi le CRE reste la meilleure couverture contre l\'inflation", "sous_titre": "Perspective Rodschinson Investment — 2025", "eyebrow": "ANALYSE"}',
+            "text_bullets": '{"titre": "3 vérités que les investisseurs ignorent", "items": ["Le cap rate ne mesure pas le risque réel", "La liquidité compte plus que le rendement en crise", "Les HNWI sur-allouent le résidentiel par habitude"]}',
+            "quote_card":   '{"citation": "Le meilleur actif est celui que vous comprenez mieux que le marché.", "auteur": "Rachid Chikhi — CEO Rodschinson Investment", "source": "rodschinson.com"}',
+            "process_steps":'{"titre": "Notre processus d\'investissement", "etapes": ["Sourcing off-market", "Due diligence 360°", "Structuration fiscale", "Asset management actif", "Exit optimisé"]}',
+            "cta_screen":   '{"eyebrow": "Rodschinson Investment", "headline": "Investissez avec ceux qui connaissent le marché", "cta_text": "Consultation Privée — 30 min", "url": "rodschinson.com"}',
+        },
     },
 }
 
@@ -305,14 +337,23 @@ Narration : max 400 mots au total. Phrases courtes et rythmées."""
 Narration : 120-150 mots par minute de vidéo. Phrases naturelles, respirées."""
 
     hint = TEMPLATE_HINTS.get(template, TEMPLATE_HINTS["rodschinson_premium"])
-    best_types_str = ", ".join(f'"{t}"' for t in hint["best_types"])
-    avoid_str      = (", ".join(f'"{t}"' for t in hint["avoid"]) + " — ÉVITE CES TYPES") if hint["avoid"] else "aucun"
-    template_note  = f"""TEMPLATE SÉLECTIONNÉ : {template}
-- Style visuel : {hint['style']}
-- Ton adapté   : {hint['tone']}
-- Types PRIORITAIRES pour ce template : {best_types_str}
-- Types à éviter : {avoid_str}
-Utilise EXCLUSIVEMENT les types prioritaires listés ci-dessus pour ce template."""
+    types_list = ", ".join(f'"{t}"' for t in hint["supported_types"])
+    schemas    = hint.get("schemas", {})
+    schemas_block = "\n".join(
+        f'  "{stype}": {sexample}'
+        for stype, sexample in schemas.items()
+    )
+    template_note = f"""TEMPLATE SÉLECTIONNÉ : {template}
+Style : {hint['style']}
+Ton   : {hint['tone']}
+
+TYPES AUTORISÉS pour ce template (UTILISE UNIQUEMENT CES TYPES) : {types_list}
+
+STRUCTURE EXACTE DU CHAMP "visuel" PAR TYPE — copie ces champs exactement, remplace les valeurs par le contenu réel :
+{schemas_block}
+
+RÈGLE ABSOLUE : Le champ "visuel" de chaque scène doit contenir EXACTEMENT les mêmes clés que les exemples ci-dessus.
+NE PAS inventer de nouvelles clés. NE PAS utiliser de types hors de la liste autorisée."""
 
     return f"""Génère un script vidéo complet pour {brand_name}.
 
@@ -330,21 +371,7 @@ BRIEF :
 
 {template_note}
 
-TYPES DE VISUELS MANIM DISPONIBLES (utilise UNIQUEMENT ces types) :
-- "title_card"       : titre centré, sous-titre, fond coloré brand
-- "text_bullets"     : liste à puces animée, apparition progressive
-- "big_number"       : chiffre géant centré avec contexte (ex: -8%, 3.5%, 20 ans)
-- "bar_chart"        : histogramme animé comparatif (max 5 barres)
-- "line_chart"       : courbe d'évolution temporelle (max 3 séries)
-- "pie_chart"        : camembert animé (max 5 parts)
-- "comparison_table" : tableau comparatif 2-3 colonnes
-- "process_steps"    : étapes numérotées animées en séquence
-- "world_map"        : carte monde avec points géographiques surlignés
-- "split_screen"     : deux blocs côte-à-côte (avant/après, A vs B)
-- "quote_card"       : citation centrée, auteur, fond brand
-- "timeline"         : frise chronologique animée
-- "icon_grid"        : grille d'icônes avec labels (max 6)
-- "cta_screen"       : écran final CTA avec logo et site web
+TYPES DE VISUELS DISPONIBLES : voir section "TEMPLATE SÉLECTIONNÉ" ci-dessus — utilise UNIQUEMENT les types listés et les champs exacts indiqués dans les exemples.
 
 RETOURNE UNIQUEMENT ce JSON valide (aucun texte avant ou après) :
 
