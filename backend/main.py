@@ -176,8 +176,10 @@ async def _templates_save(entries: list[dict]) -> None:
 
 def _script_format_for(content_type: str, fmt: str, duration_sec: int = 60) -> tuple[str, float]:
     """Return (script_format, duree_minutes) for the script generator."""
-    if content_type in ("reel", "story") or fmt == "9:16":
-        return "reel", max(0.5, duration_sec / 60)
+    if content_type == "story":
+        return "story", max(0.1, duration_sec / 60)
+    if content_type == "reel" or fmt == "9:16":
+        return "reel", max(0.25, duration_sec / 60)
     if content_type == "video" and fmt == "16:9":
         return "youtube", max(1.0, duration_sec / 60)
     return "linkedin", max(1.0, duration_sec / 60)
