@@ -171,14 +171,26 @@ FORMATS = {
     "reel": {
         "label":       "Reel Instagram/LinkedIn (format court)",
         "ratio":       "9:16",
-        "duree_min":   0.5,
+        "duree_min":   0.25,
         "duree_max":   1.5,
-        "scenes_min":  3,
-        "scenes_max":  4,
+        "scenes_min":  2,
+        "scenes_max":  6,
         "largeur":     1080,
         "hauteur":     1920,
         "fps":         30,
-        "description": "Reel vertical ultra-court — hook 5s, 2-3 points percutants, CTA",
+        "description": "Reel vertical — hook percutant, contenu dense, CTA",
+    },
+    "story": {
+        "label":       "Story Instagram/Facebook (format très court)",
+        "ratio":       "9:16",
+        "duree_min":   0.1,
+        "duree_max":   0.35,
+        "scenes_min":  1,
+        "scenes_max":  2,
+        "largeur":     1080,
+        "hauteur":     1920,
+        "fps":         30,
+        "description": "Story éphémère — UN message clé, visuel fort, CTA immédiat",
     },
 }
 
@@ -293,7 +305,8 @@ RÈGLES ABSOLUES :
 4. Données chiffrées : toujours sourcer (JLL, CBRE, Bloomberg, etc.)
 5. CTA final : toujours vers Rodschinson Investment ou rachidchikhi.com
 6. Langue : Français exclusivement
-7. Visuels Manim : utiliser UNIQUEMENT les types listés dans le schéma"""
+7. Visuels Manim : utiliser UNIQUEMENT les types listés dans le schéma
+8. Durées : respecter EXACTEMENT les duree_sec demandées — la somme doit égaler duree_totale_sec"""
 
 
 # ─── USER PROMPT ─────────────────────────────────────────────────────────────
@@ -302,9 +315,9 @@ def build_script_prompt(brand: str, brief: dict) -> str:
     """Construit le prompt pour générer le script JSON."""
 
     fmt        = brief.get("format", "youtube")
-    fmt_info   = FORMATS[fmt]
+    fmt_info   = FORMATS.get(fmt, FORMATS["youtube"])
     duree      = brief.get("duree", fmt_info["duree_min"])
-    n_scenes   = brief.get("n_scenes", fmt_info["scenes_min"])
+    duree_sec  = int(duree * 60)
     sujet      = brief.get("sujet", "")
     angle      = brief.get("angle", "")
     cible      = brief.get("cible", "")
@@ -315,13 +328,32 @@ def build_script_prompt(brand: str, brief: dict) -> str:
     brand_name = "Rodschinson Investment" if brand == "rodschinson" else "Rachid Chikhi"
     site       = "rodschinson.com" if brand == "rodschinson" else "rachidchikhi.com"
 
+    # Compute scene count from actual duration — ~1 scene per 10-15s for reels/stories, ~1 per 45-60s for video
+    if fmt in ("reel", "story"):
+        # Each reel scene ≈ 8–20s depending on total duration
+        scene_sec = 12 if duree_sec <= 30 else 15 if duree_sec <= 60 else 18
+        n_scenes = max(fmt_info["scenes_min"], min(fmt_info["scenes_max"], round(duree_sec / scene_sec)))
+        per_scene_sec = max(5, duree_sec // n_scenes)
+    else:
+        n_scenes = brief.get("n_scenes", fmt_info["scenes_min"])
+        per_scene_sec = None
+
+    if brief.get("n_scenes"):
+        n_scenes = brief["n_scenes"]
+
     # Adapter les instructions selon le format
-    if fmt == "reel":
-        structure_note = """STRUCTURE REEL (ultra-court) :
-- Scène 1 : Hook visuel 5s — phrase choc à l'écran
-- Scène 2 : 2-3 points clés ultra-synthétiques
-- Scène 3 : CTA + logo
-Narration : max 150 mots au total. Phrases de 6-8 mots max."""
+    if fmt == "story":
+        structure_note = f"""STRUCTURE STORY (ultra-court, {duree_sec}s total) :
+- {n_scenes} scène(s) maximum. Durée par scène : {per_scene_sec}s environ.
+- 1 seul message clé. Visuel fort. CTA immédiat.
+- Narration : max {n_scenes * 15} mots. Phrases de 4-6 mots max. IMPACT IMMÉDIAT."""
+    elif fmt == "reel":
+        structure_note = f"""STRUCTURE REEL ({duree_sec}s total, {n_scenes} scènes) :
+- Scène 1 : Hook visuel percutant ({per_scene_sec}s) — phrase choc, stat ou question
+- Scènes 2 à {n_scenes - 1} : contenu dense et rythmé ({per_scene_sec}s chacune)
+- Scène {n_scenes} : CTA fort ({per_scene_sec}s)
+- Narration : max {int(duree_sec * 2.5)} mots. Phrases de 5-8 mots max. Rythme soutenu.
+- IMPORTANT : chaque scène doit avoir exactement duree_sec = {per_scene_sec}"""
     elif fmt == "linkedin":
         structure_note = """STRUCTURE LINKEDIN VIDEO :
 - Scène 1 : Hook + promesse (15s)
@@ -364,8 +396,8 @@ BRIEF :
 - Cible : {cible if cible else "Audience principale de la brand"}
 - Données disponibles : {donnees if donnees else "Utilise des chiffres de marché récents et plausibles (JLL, CBRE, Bloomberg)"}
 - Format : {fmt_info['label']} ({fmt_info['ratio']})
-- Durée cible : {duree} min
-- Nombre de scènes : {n_scenes}
+- Durée cible : {duree_sec}s ({duree:.1f} min)
+- Nombre de scènes : {n_scenes} (durée par scène : {per_scene_sec if per_scene_sec else round(duree_sec / n_scenes)}s)
 
 {structure_note}
 
@@ -386,7 +418,7 @@ RETOURNE UNIQUEMENT ce JSON valide (aucun texte avant ou après) :
     "largeur":      {fmt_info['largeur']},
     "hauteur":      {fmt_info['hauteur']},
     "fps":          {fmt_info['fps']},
-    "duree_totale_sec": {int(duree * 60)},
+    "duree_totale_sec": {duree_sec},
     "langue":       "fr",
     "template":     "{template}",
     "genere_le":    "{datetime.datetime.now().isoformat()}",
@@ -933,7 +965,7 @@ def main():
     parser.add_argument("--angle",     default="",   help="Angle éditorial")
     parser.add_argument("--donnees",   default="",   help="Sources et chiffres disponibles")
     parser.add_argument("--cible",     default="",   help="Audience cible")
-    parser.add_argument("--format",    choices=["youtube", "linkedin", "reel"], default="youtube")
+    parser.add_argument("--format",    choices=["youtube", "linkedin", "reel", "story"], default="youtube")
     parser.add_argument("--template",  default="",   help="Template ID (ex: rodschinson_premium, cre, news_reel)")
     parser.add_argument("--duree",     type=float,   default=8.0, help="Durée en minutes")
     parser.add_argument("--n-scenes",  type=int,     default=0,   help="Nombre de scènes (0=auto)")
