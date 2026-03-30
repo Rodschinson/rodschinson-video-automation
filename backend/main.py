@@ -1183,6 +1183,7 @@ async def get_schedule_week(start: Optional[str] = None):
 
 class ScheduleCreate(BaseModel):
     job_id: str; date: str; slot: str; platform: str
+    scheduled_time: Optional[str] = None   # "HH:MM" e.g. "09:30"
 
 
 @app.post("/api/schedule", status_code=201)
@@ -1195,9 +1196,11 @@ async def create_schedule_entry(body: ScheduleCreate):
     entry = {
         "id": entry_id, "job_id": body.job_id, "date": body.date,
         "slot": body.slot, "platform": body.platform,
+        "scheduled_time": body.scheduled_time or "",
         "title": lib_entry["title"] if lib_entry else "",
         "content_type": lib_entry.get("content_type", "") if lib_entry else "",
-        "status": "Scheduled", "created_at": _now(),
+        "status": "Scheduled", "publish_status": "local",
+        "created_at": _now(),
     }
     entries = await _schedule_load()
     entries.append(entry)
@@ -1206,6 +1209,75 @@ async def create_schedule_entry(body: ScheduleCreate):
         lib_entry["status"] = "Scheduled"; lib_entry["updated_at"] = _now()
         await _library_save(lib)
     return entry
+
+
+@app.post("/api/schedule/{entry_id}/publish")
+async def publish_schedule_entry(entry_id: str):
+    """Send a scheduled entry to Metricool at its stored scheduled_time."""
+    entries = await _schedule_load()
+    entry   = next((e for e in entries if e.get("id") == entry_id), None)
+    if not entry:
+        raise HTTPException(404, "Schedule entry not found")
+
+    job_id  = entry.get("job_id", "")
+    brand   = "rodschinson"
+    lib     = await _library_load()
+    lib_entry = next((e for e in lib if e.get("job_id") == job_id), None)
+    if lib_entry:
+        brand = lib_entry.get("brand", "rodschinson")
+
+    token   = _metricool_token()
+    user_id = os.getenv("METRICOOL_USER_ID", "")
+    blog_id = _metricool_blog_id(brand)
+
+    if not all([token, user_id, blog_id]):
+        raise HTTPException(503, "Metricool not configured")
+
+    # Build publication datetime from entry date + scheduled_time
+    from datetime import datetime, timezone
+    entry_date = entry.get("date", "")
+    entry_time = entry.get("scheduled_time", "") or "09:00"
+    try:
+        pub_dt_obj = datetime.fromisoformat(f"{entry_date}T{entry_time}:00")
+    except ValueError:
+        pub_dt_obj = datetime.now(timezone.utc)
+    pub_dt = pub_dt_obj.strftime("%Y-%m-%dT%H:%M:%S")
+
+    caption = (lib_entry.get("output_text") or lib_entry.get("title", "") if lib_entry else entry.get("title", ""))[:2200]
+    platform = entry.get("platform", "linkedin")
+    supported = {"linkedin", "instagram", "facebook", "tiktok", "youtube", "twitter"}
+    networks  = {platform: {}} if platform in supported else {}
+
+    payload: dict = {
+        "blogId": blog_id, "userId": user_id,
+        "caption": caption, "networks": networks,
+        "publicationDate": {"dateTime": pub_dt, "timezone": "UTC"},
+    }
+    if lib_entry and lib_entry.get("public_media_url"):
+        payload["media"] = [{"url": lib_entry["public_media_url"]}]
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.post(
+            f"{_METRICOOL_BASE}/v2/scheduler/posts",
+            headers=await _metricool_headers(),
+            json=payload,
+        )
+
+    if res.status_code not in (200, 201):
+        # Mark as failed
+        entry["publish_status"] = "failed"
+        entry["publish_error"]  = res.text[:300]
+        await _schedule_save(entries)
+        raise HTTPException(502, f"Metricool returned {res.status_code}: {res.text[:300]}")
+
+    entry["publish_status"] = "sent"
+    entry["published_at"]   = _now()
+    await _schedule_save(entries)
+    if lib_entry:
+        lib_entry["status"] = "Published"; lib_entry["updated_at"] = _now()
+        await _library_save(lib)
+
+    return {"status": "sent", "scheduled_for": pub_dt, "metricool": res.json()}
 
 
 @app.delete("/api/schedule/{entry_id}", status_code=204)
