@@ -19,8 +19,12 @@ from typing import Optional
 import aiofiles
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+import base64
+import hashlib
+import secrets
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
@@ -1757,3 +1761,309 @@ def _fallback_views30(mul: float, videos_gen: int) -> list[dict]:
                      "rodschinson": round(base * 0.62 * min(scale, 3)),
                      "rachid":      round(base * 0.38 * min(scale, 3))})
     return rows
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CANVA CONNECT API
+# ══════════════════════════════════════════════════════════════════════════════
+
+_CANVA_BASE      = "https://api.canva.com/rest/v1"
+_CANVA_AUTH_URL  = "https://www.canva.com/api/oauth/authorize"
+_CANVA_TOKEN_URL = "https://www.canva.com/api/oauth/token"
+
+# In-memory PKCE store (code_verifier keyed by state) — fine for single-instance
+_canva_pkce: dict[str, str] = {}
+# In-memory token store keyed by brand ("rodschinson" | "rachid")
+_canva_tokens: dict[str, dict] = {}
+
+_CANVA_SCOPES = " ".join([
+    "design:content:read",
+    "design:content:write",
+    "design:meta:read",
+    "asset:read",
+    "asset:write",
+    "brandtemplate:content:read",
+    "brandtemplate:meta:read",
+    "profile:read",
+])
+
+def _canva_client_id() -> str:
+    return os.getenv("CANVA_CLIENT_ID", "")
+
+def _canva_client_secret() -> str:
+    return os.getenv("CANVA_CLIENT_SECRET", "")
+
+def _canva_redirect_uri() -> str:
+    base = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+    return f"{base}/api/canva/callback"
+
+def _pkce_pair() -> tuple[str, str]:
+    """Generate a PKCE code_verifier + code_challenge (S256)."""
+    verifier  = base64.urlsafe_b64encode(secrets.token_bytes(48)).rstrip(b"=").decode()
+    challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(verifier.encode()).digest()
+    ).rstrip(b"=").decode()
+    return verifier, challenge
+
+
+@app.get("/api/canva/auth")
+async def canva_auth(brand: str = Query("rodschinson")):
+    """Redirect user to Canva OAuth consent screen."""
+    if not _canva_client_id():
+        raise HTTPException(503, "CANVA_CLIENT_ID not configured")
+    verifier, challenge = _pkce_pair()
+    state = f"{brand}:{secrets.token_urlsafe(16)}"
+    _canva_pkce[state] = verifier
+
+    params = {
+        "response_type":         "code",
+        "client_id":             _canva_client_id(),
+        "redirect_uri":          _canva_redirect_uri(),
+        "scope":                 _CANVA_SCOPES,
+        "state":                 state,
+        "code_challenge":        challenge,
+        "code_challenge_method": "S256",
+    }
+    qs = "&".join(f"{k}={v}" for k, v in params.items())
+    return RedirectResponse(f"{_CANVA_AUTH_URL}?{qs}")
+
+
+@app.get("/api/canva/callback")
+async def canva_callback(code: str = Query(...), state: str = Query(...)):
+    """Exchange OAuth code for access token and store it."""
+    verifier = _canva_pkce.pop(state, None)
+    if not verifier:
+        raise HTTPException(400, "Invalid or expired OAuth state")
+
+    brand = state.split(":")[0]
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.post(
+            _CANVA_TOKEN_URL,
+            data={
+                "grant_type":    "authorization_code",
+                "code":          code,
+                "redirect_uri":  _canva_redirect_uri(),
+                "code_verifier": verifier,
+            },
+            auth=(_canva_client_id(), _canva_client_secret()),
+        )
+
+    if res.status_code != 200:
+        raise HTTPException(502, f"Canva token exchange failed: {res.text[:300]}")
+
+    token_data = res.json()
+    token_data["obtained_at"] = _now()
+    _canva_tokens[brand] = token_data
+
+    # Save to disk so tokens survive restarts
+    tokens_file = OUTPUT / "canva_tokens.json"
+    existing = {}
+    if tokens_file.exists():
+        try: existing = json.loads(tokens_file.read_text())
+        except Exception: pass
+    existing[brand] = token_data
+    tokens_file.write_text(json.dumps(existing, indent=2))
+
+    return {"status": "connected", "brand": brand, "scope": token_data.get("scope", "")}
+
+
+async def _canva_token(brand: str = "rodschinson") -> str:
+    """Return a valid Canva access token, refreshing if needed."""
+    # Load from disk if not in memory
+    if brand not in _canva_tokens:
+        tokens_file = OUTPUT / "canva_tokens.json"
+        if tokens_file.exists():
+            try:
+                data = json.loads(tokens_file.read_text())
+                if brand in data:
+                    _canva_tokens[brand] = data[brand]
+            except Exception:
+                pass
+
+    token_data = _canva_tokens.get(brand)
+    if not token_data:
+        raise HTTPException(401, f"Canva not connected for brand '{brand}'. Visit /api/canva/auth?brand={brand}")
+
+    # Refresh if expired (expires_in seconds from obtained_at)
+    obtained   = datetime.fromisoformat(token_data.get("obtained_at", _now()))
+    expires_in = int(token_data.get("expires_in", 3600))
+    age        = (datetime.now(timezone.utc) - obtained.replace(tzinfo=timezone.utc)).total_seconds()
+
+    if age > expires_in - 120 and token_data.get("refresh_token"):
+        async with httpx.AsyncClient(timeout=30) as client:
+            res = await client.post(
+                _CANVA_TOKEN_URL,
+                data={"grant_type": "refresh_token", "refresh_token": token_data["refresh_token"]},
+                auth=(_canva_client_id(), _canva_client_secret()),
+            )
+        if res.status_code == 200:
+            refreshed = res.json()
+            refreshed["obtained_at"] = _now()
+            _canva_tokens[brand] = refreshed
+            tokens_file = OUTPUT / "canva_tokens.json"
+            try:
+                existing = json.loads(tokens_file.read_text()) if tokens_file.exists() else {}
+                existing[brand] = refreshed
+                tokens_file.write_text(json.dumps(existing, indent=2))
+            except Exception:
+                pass
+            return refreshed["access_token"]
+
+    return token_data["access_token"]
+
+
+@app.get("/api/canva/status")
+async def canva_status():
+    """Check which brands have a valid Canva token."""
+    tokens_file = OUTPUT / "canva_tokens.json"
+    connected = {}
+    if tokens_file.exists():
+        try:
+            data = json.loads(tokens_file.read_text())
+            for brand, td in data.items():
+                connected[brand] = {
+                    "connected": True,
+                    "obtained_at": td.get("obtained_at"),
+                    "scope": td.get("scope", ""),
+                }
+        except Exception:
+            pass
+    return {"brands": connected, "auth_url": "/api/canva/auth?brand=rodschinson"}
+
+
+@app.get("/api/canva/templates")
+async def canva_brand_templates(brand: str = Query("rodschinson"), q: str = Query("")):
+    """List brand templates from Canva."""
+    token = await _canva_token(brand)
+    params: dict = {"limit": 50}
+    if q:
+        params["query"] = q
+    async with httpx.AsyncClient(timeout=20) as client:
+        res = await client.get(
+            f"{_CANVA_BASE}/brandtemplates",
+            headers={"Authorization": f"Bearer {token}"},
+            params=params,
+        )
+    if res.status_code != 200:
+        raise HTTPException(502, f"Canva templates error: {res.text[:300]}")
+    data = res.json()
+    items = data.get("items", [])
+    return {
+        "templates": [
+            {
+                "id":       t.get("id"),
+                "title":    t.get("title", ""),
+                "type":     t.get("design_type", {}).get("name", ""),
+                "thumbnail": t.get("thumbnail", {}).get("url", ""),
+            }
+            for t in items
+        ]
+    }
+
+
+class CanvaDesignRequest(BaseModel):
+    brand:        str = "rodschinson"
+    title:        str = "Rodschinson — Content"
+    design_type:  str = "SOCIAL_MEDIA_SQUARE"   # or INSTAGRAM_REEL, PRESENTATION, etc.
+    template_id:  Optional[str] = None           # brand template ID to start from
+
+
+@app.post("/api/canva/design")
+async def canva_create_design(body: CanvaDesignRequest):
+    """Create a new Canva design (blank or from brand template)."""
+    token = await _canva_token(body.brand)
+
+    # Design type name → Canva design_type object
+    DESIGN_TYPES = {
+        "SOCIAL_MEDIA_SQUARE":  {"name": "SOCIAL_MEDIA_SQUARE"},
+        "INSTAGRAM_POST":       {"name": "SOCIAL_MEDIA_PORTRAIT"},
+        "INSTAGRAM_REEL":       {"name": "INSTAGRAM_REEL"},
+        "TIKTOK":               {"name": "TIKTOK_VIDEO"},
+        "YOUTUBE_THUMBNAIL":    {"name": "YOUTUBE_THUMBNAIL"},
+        "LINKEDIN_POST":        {"name": "SOCIAL_MEDIA_LANDSCAPE"},
+        "PRESENTATION":         {"name": "PRESENTATION"},
+        "A4_DOCUMENT":          {"name": "DOCUMENT"},
+    }
+    dtype = DESIGN_TYPES.get(body.design_type, {"name": body.design_type})
+
+    if body.template_id:
+        design_payload = {"design_type": dtype, "asset_id": body.template_id, "title": body.title}
+    else:
+        design_payload = {"design_type": dtype, "title": body.title}
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.post(
+            f"{_CANVA_BASE}/designs",
+            headers={"Authorization": f"Bearer {token}"},
+            json=design_payload,
+        )
+
+    if res.status_code not in (200, 201):
+        raise HTTPException(502, f"Canva create design failed: {res.text[:300]}")
+
+    design = res.json().get("design", res.json())
+    return {
+        "design_id":  design.get("id"),
+        "title":      design.get("title"),
+        "edit_url":   design.get("urls", {}).get("edit_url"),
+        "view_url":   design.get("urls", {}).get("view_url"),
+        "thumbnail":  design.get("thumbnail", {}).get("url"),
+    }
+
+
+class CanvaExportRequest(BaseModel):
+    brand:      str = "rodschinson"
+    design_id:  str
+    format:     str = "PNG"   # PNG | PDF | MP4 | GIF | PPTX
+
+
+@app.post("/api/canva/export")
+async def canva_export_design(body: CanvaExportRequest):
+    """Start an export job for a Canva design and wait for the download URL(s)."""
+    token = await _canva_token(body.brand)
+
+    FORMAT_MAP = {
+        "PNG":  {"type": "PNG",  "export_quality": "regular", "lossless": False},
+        "PDF":  {"type": "PDF",  "export_quality": "regular"},
+        "MP4":  {"type": "MP4",  "export_quality": "regular"},
+        "GIF":  {"type": "GIF",  "export_quality": "regular"},
+        "PPTX": {"type": "PPTX"},
+    }
+    fmt_opts = FORMAT_MAP.get(body.format.upper(), {"type": body.format.upper()})
+
+    # Start export
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.post(
+            f"{_CANVA_BASE}/exports",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"design_id": body.design_id, "format": fmt_opts},
+        )
+
+    if res.status_code not in (200, 201):
+        raise HTTPException(502, f"Canva export failed: {res.text[:300]}")
+
+    export_data = res.json().get("job", res.json())
+    export_id   = export_data.get("id")
+    if not export_id:
+        return export_data  # Already has URLs (sync export)
+
+    # Poll until complete (max 60s)
+    for _ in range(30):
+        await asyncio.sleep(2)
+        async with httpx.AsyncClient(timeout=15) as client:
+            poll = await client.get(
+                f"{_CANVA_BASE}/exports/{export_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if poll.status_code != 200:
+            continue
+        job = poll.json().get("job", poll.json())
+        status = job.get("status", "")
+        if status == "success":
+            urls = [u.get("url") for u in job.get("urls", []) if u.get("url")]
+            return {"status": "success", "export_id": export_id, "urls": urls, "format": body.format}
+        if status in ("failed", "error"):
+            raise HTTPException(502, f"Canva export job failed: {job}")
+
+    raise HTTPException(504, "Canva export timed out after 60s")
