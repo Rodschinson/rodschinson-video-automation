@@ -376,12 +376,49 @@ function fmtStat(stat) {
 }
 
 window.loadScene = function(slideData) {
-  const c     = document.getElementById('scene-container');
-  const idx   = slideData.index || 1;
+  const c = document.getElementById('scene-container');
+  const v = slideData.visuel || {};
+
+  // Map standard renderer format (type_visuel + visuel) → cre slide types
+  const tv = slideData.type_visuel || slideData.type || 'content';
+  const type = (tv === 'title_card') ? 'title'
+             : (tv === 'cta_screen')  ? 'cta'
+             : 'content';
+
+  const idx   = slideData.id    || slideData.index || 1;
   const total = slideData.total || '';
-  const type  = slideData.type  || 'content';
-  const brand = slideData.brand || 'Rodschinson Investment';
+  const brand = v.brand || slideData.brand || 'Rodschinson Investment';
   const counter = total ? `${padNum(idx)} / ${padNum(total)}` : '';
+
+  // --- Canonical field extraction from visuel ---
+  let headline    = v.titre_principal || v.titre || v.title || v.headline || '';
+  let subheadline = v.sous_titre || v.subtitle || v.subheadline || '';
+  let ctaLabel    = v.cta || v.bouton || v.cta_text || 'En savoir plus →';
+  let hashtags    = v.hashtags || [];
+  let body        = v.body || '';
+  let stat        = v.stat || null;
+
+  // Type-specific extraction
+  if (tv === 'big_number') {
+    const valeur = v.valeur || '';
+    const unite  = v.unite  || '';
+    stat = valeur ? `${valeur}${unite ? ' ' + unite : ''} – ${v.contexte || v.eyebrow || ''}` : (v.stat || null);
+    if (!headline) headline = v.eyebrow || '';
+    body = v.formule || v.contexte || '';
+  } else if (tv === 'bar_chart') {
+    if (!headline) headline = v.titre || '';
+    const series = v.series || [];
+    body = series.map(s => `${s.label} : ${s.valeur}${v.unite||'%'}`).join('  ·  ');
+    if (v.source) body = body ? body + '\n' + v.source : v.source;
+  } else if (tv === 'text_bullets' || tv === 'process_steps') {
+    if (!headline) headline = v.titre || '';
+    const items = v.items || v.etapes || v.elements || [];
+    body = items.join('  ·  ');
+  } else if (tv === 'cta_screen') {
+    if (!headline) headline = v.headline || '';
+    body = v.body || v.sous_titre || '';
+    hashtags = v.hashtags || [];
+  }
 
   // Background layer shared by all slides
   const bgHtml = `
@@ -403,27 +440,27 @@ window.loadScene = function(slideData) {
         <div class="live-badge"><div class="live-dot"></div>LIVE</div>
       </div>
       <div class="t-mid">
-        <div class="title-headline">${fmt(slideData.headline||'')}</div>
+        <div class="title-headline">${fmt(headline)}</div>
         <div class="title-rule"></div>
-        <div class="title-sub">${esc(slideData.subheadline||slideData.sub||'')}</div>
+        <div class="title-sub">${esc(subheadline)}</div>
       </div>
       <div class="t-bot">
-        <div class="swipe-row">${esc(brand)} &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; ${esc(slideData.cta||'Swipe →')}</div>
+        <div class="swipe-row">${esc(brand)} &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; ${esc(ctaLabel)}</div>
         <div class="slide-count-badge">${counter}</div>
       </div>
     </div>`;
 
   } else if (type === 'cta') {
-    const tags = (slideData.hashtags||[]).map(h=>`<span class="htag">${esc(h)}</span>`).join('');
+    const tags = hashtags.map(h=>`<span class="htag">${esc(h)}</span>`).join('');
     html = `<div class="scene slide-cta" id="scene">
       ${bgHtml}
       <div class="cta-top">
         <div class="cta-terminal">$ contact --team ${esc((brand||'rodschinson').toLowerCase().replace(/\s+/g,''))}<span class="cta-terminal-cursor"></span></div>
       </div>
       <div class="cta-mid">
-        <div class="cta-headline">${fmt(slideData.headline||'')}</div>
+        <div class="cta-headline">${fmt(headline)}</div>
         <div class="cta-rule"></div>
-        <div class="cta-body">${esc(slideData.body||'')}</div>
+        <div class="cta-body">${esc(body)}</div>
       </div>
       <div class="cta-bot">
         ${tags ? `<div class="hashtag-row">${tags}</div>` : ''}
@@ -447,10 +484,10 @@ window.loadScene = function(slideData) {
         </div>
       </div>
       <div class="c-mid">
-        <div class="content-headline">${fmt(slideData.headline||'')}</div>
+        <div class="content-headline">${fmt(headline)}</div>
         <div class="content-rule"></div>
-        <div class="content-body">${esc(slideData.body||'')}</div>
-        ${slideData.stat ? `<div class="c-bot-sep"></div><div class="stat-block">${fmtStat(slideData.stat)}</div>` : '<div style="margin-top:auto"></div>'}
+        <div class="content-body">${esc(body)}</div>
+        ${stat ? `<div class="c-bot-sep"></div><div class="stat-block">${fmtStat(stat)}</div>` : '<div style="margin-top:auto"></div>'}
       </div>
       <div class="c-bot">
         <div class="footer-brand">${esc(brand.toUpperCase())} — DATA INSIGHTS</div>
