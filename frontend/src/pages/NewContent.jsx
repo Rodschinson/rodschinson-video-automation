@@ -34,7 +34,7 @@ export const CONTENT_TYPES = [
     formats: ['9:16'],
     defaultFormat: '9:16',
     platforms: ['instagram', 'tiktok', 'youtube'],
-    templateGroup: 'video',
+    templateGroup: 'reel',
     steps: ['Script', 'Render', 'Audio', 'Assemble'],
     stepDesc: ['Fast hook + 3 punchy scenes', 'Vertical template render', 'Short-form voiceover', 'FFmpeg vertical assembly'],
     showScriptPreview: true,
@@ -116,17 +116,25 @@ export const CONTENT_TYPES = [
 // ─── Template groups ──────────────────────────────────────────────────────────
 const TEMPLATE_GROUPS = {
   video: [
-    { id: 'rodschinson_premium', label: 'Rodschinson Premium', gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E' },
-    { id: 'news_reel',           label: 'News Reel',           gradient: 'linear-gradient(135deg,#1a0505,#2d0f0f)', accent: '#FF4444' },
-    { id: 'tech_data',           label: 'Tech Data',           gradient: 'linear-gradient(135deg,#031520,#061e2e)', accent: '#00B6FF' },
-    { id: 'corporate_minimal',   label: 'Corporate Minimal',   gradient: 'linear-gradient(135deg,#0a0a0a,#181818)', accent: '#ffffff' },
-    { id: 'social_story',        label: 'Social Story',        gradient: 'linear-gradient(135deg,#1a0a2e,#2d1454)', accent: '#a855f7' },
-    { id: 'motion_type',         label: 'Motion Type',         gradient: 'linear-gradient(135deg,#0a1a0a,#0f2a0f)', accent: '#22c55e' },
+    { id: 'rodschinson_premium', label: 'Rodschinson Premium', gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E', desc: 'Dark blue · gold · institutional' },
+    { id: 'cre',                 label: 'CRE Terminal',        gradient: 'linear-gradient(135deg,#080E1A,#0d1a30)', accent: '#00E5C8', desc: 'Dark · cyan · data terminal' },
+    { id: 'tech_data',           label: 'Tech Data',           gradient: 'linear-gradient(135deg,#031520,#061e2e)', accent: '#00B6FF', desc: 'Bloomberg · chart-heavy' },
+    { id: 'news_reel',           label: 'News Reel',           gradient: 'linear-gradient(135deg,#1a0505,#2d0f0f)', accent: '#FF4444', desc: 'Breaking news · urgent' },
+    { id: 'corporate_minimal',   label: 'Corporate Minimal',   gradient: 'linear-gradient(135deg,#0a0a0a,#181818)', accent: '#ffffff', desc: 'Clean · editorial · white' },
+  ],
+  reel: [
+    { id: 'rodschinson_premium', label: 'Rodschinson Premium', gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E', desc: 'Dark blue · gold · hook-first' },
+    { id: 'cre',                 label: 'CRE Terminal',        gradient: 'linear-gradient(135deg,#080E1A,#0d1a30)', accent: '#00E5C8', desc: 'Cyan · stat per scene' },
+    { id: 'news_reel',           label: 'News Reel',           gradient: 'linear-gradient(135deg,#1a0505,#2d0f0f)', accent: '#FF4444', desc: 'BREAKING · fast cuts' },
+    { id: 'tech_data',           label: 'Tech Data',           gradient: 'linear-gradient(135deg,#031520,#061e2e)', accent: '#00B6FF', desc: 'Data terminal · numbers' },
+    { id: 'corporate_minimal',   label: 'Corporate Minimal',   gradient: 'linear-gradient(135deg,#0a0a0a,#181818)', accent: '#ffffff', desc: 'Minimal · thought leadership' },
   ],
   story: [
-    { id: 'social_story',        label: 'Social Story',        gradient: 'linear-gradient(135deg,#1a0a2e,#2d1454)', accent: '#a855f7' },
-    { id: 'rodschinson_premium', label: 'Rodschinson Premium', gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E' },
-    { id: 'motion_type',         label: 'Motion Type',         gradient: 'linear-gradient(135deg,#0a1a0a,#0f2a0f)', accent: '#22c55e' },
+    { id: 'rodschinson_premium', label: 'Rodschinson Premium', gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E', desc: 'One bold message · branded' },
+    { id: 'cre',                 label: 'CRE Terminal',        gradient: 'linear-gradient(135deg,#080E1A,#0d1a30)', accent: '#00E5C8', desc: 'One stat · full screen' },
+    { id: 'news_reel',           label: 'News Flash',          gradient: 'linear-gradient(135deg,#1a0505,#2d0f0f)', accent: '#FF4444', desc: 'Flash card · breaking' },
+    { id: 'tech_data',           label: 'Tech Data',           gradient: 'linear-gradient(135deg,#031520,#061e2e)', accent: '#00B6FF', desc: 'Data highlight · terminal' },
+    { id: 'corporate_minimal',   label: 'Corporate Minimal',   gradient: 'linear-gradient(135deg,#0a0a0a,#181818)', accent: '#ffffff', desc: 'Clean quote or insight' },
   ],
   carousel: [
     { id: 'carousel_clean',      label: 'Clean Slides',        gradient: 'linear-gradient(135deg,#f8f9fa,#e9ecef)', accent: '#08316F'  },
@@ -177,14 +185,31 @@ const ALL_PLATFORMS = [
 ]
 
 const SLIDE_COUNTS = [4, 5, 6, 7, 8, 10]
-const VIDEO_DURATIONS = [
-  { value: 30,  label: '30s' },
-  { value: 60,  label: '1 min' },
-  { value: 90,  label: '1:30' },
-  { value: 120, label: '2 min' },
-  { value: 180, label: '3 min' },
-  { value: 300, label: '5 min' },
-]
+
+const DURATIONS_BY_TYPE = {
+  video: [
+    { value: 60,  label: '1 min'  },
+    { value: 120, label: '2 min'  },
+    { value: 180, label: '3 min'  },
+    { value: 300, label: '5 min'  },
+    { value: 480, label: '8 min'  },
+    { value: 600, label: '10 min' },
+  ],
+  reel: [
+    { value: 15,  label: '15s'   },
+    { value: 30,  label: '30s'   },
+    { value: 45,  label: '45s'   },
+    { value: 60,  label: '60s'   },
+    { value: 90,  label: '90s'   },
+  ],
+  story: [
+    { value: 7,   label: '7s'    },
+    { value: 10,  label: '10s'   },
+    { value: 15,  label: '15s'   },
+    { value: 20,  label: '20s'   },
+  ],
+}
+const VIDEO_DURATIONS = DURATIONS_BY_TYPE.video  // kept for summary row compat
 
 const MUSIC_GENRES = [
   { id: 'corporate', label: 'Corporate' },
@@ -906,11 +931,14 @@ export default function NewContent() {
     const validPlatforms = ALL_PLATFORMS.filter(p => newType.platforms.includes(p.id)).map(p => p.id)
     const newPlatforms = form.platforms.filter(p => validPlatforms.includes(p))
 
+    const newDurations = DURATIONS_BY_TYPE[newType.id] || DURATIONS_BY_TYPE.video
+    const newDuration = newDurations.find(d => d.value === form.duration) ? form.duration : newDurations[Math.floor(newDurations.length / 2)].value
     setForm(f => ({
       ...f,
       format: newFormat,
       template: newTemplate,
       platforms: newPlatforms.length ? newPlatforms : [validPlatforms[0]],
+      duration: newDuration,
     }))
     setVariations([]); setSelectedVariation(null)
     setCarouselSlides([]); setCarouselActiveSlide(0)
@@ -1316,11 +1344,11 @@ export default function NewContent() {
               </Section>
             )}
 
-            {/* Duration — video & reel only */}
-            {(form.contentType === 'video' || form.contentType === 'reel') && (
+            {/* Duration — video, reel & story */}
+            {(form.contentType === 'video' || form.contentType === 'reel' || form.contentType === 'story') && (
               <Section title="Duration" hint="Target length of the video">
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {VIDEO_DURATIONS.map(d => (
+                  {(DURATIONS_BY_TYPE[form.contentType] || DURATIONS_BY_TYPE.video).map(d => (
                     <Chip key={d.value} active={form.duration === d.value} onClick={() => set('duration', d.value)}>{d.label}</Chip>
                   ))}
                 </div>
@@ -1554,7 +1582,7 @@ export default function NewContent() {
               <SummaryRow label="Language"  value={form.language} />
               {form.contentType !== 'text_only' && <SummaryRow label="Format"    value={form.format} />}
               {form.contentType === 'carousel' && <SummaryRow label="Slides" value={`${form.slides} slides`} />}
-              {(form.contentType === 'video' || form.contentType === 'reel') && <SummaryRow label="Duration" value={VIDEO_DURATIONS.find(d => d.value === form.duration)?.label || `${form.duration}s`} />}
+              {(form.contentType === 'video' || form.contentType === 'reel' || form.contentType === 'story') && <SummaryRow label="Duration" value={(DURATIONS_BY_TYPE[form.contentType] || []).find(d => d.value === form.duration)?.label || `${form.duration}s`} />}
               {typeDef.showTemplate && <SummaryRow label="Template"  value={form.canvaTemplateUrl ? `🎨 Canva: ${canvaTemplates.find(t => t.url === form.canvaTemplateUrl)?.name || 'Custom'}` : templates.find(t => t.id === form.template)?.label} />}
               {typeDef.showWritingStyle && <SummaryRow label="Style"     value={STYLES.find(s => s.id === form.style)?.label} />}
               {typeDef.showVoiceStyle   && <SummaryRow label="Audio" value={form.audioMode === 'music' ? `🎵 Music — ${MUSIC_GENRES.find(g => g.id === form.musicGenre)?.label}` : `🎙 Voiceover — ${VOICE_STYLES.find(v => v.id === form.voiceStyle)?.label}`} />}
