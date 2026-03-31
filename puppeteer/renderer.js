@@ -64,6 +64,23 @@ const TEMPLATES = {
   reel_gradient:       'reel_gradient.html',
 };
 
+// ── STRICT SCENE TYPE ALLOWLIST PER TEMPLATE ─────────────────────────────────
+// If a scene's type_visuel is not in this list for the chosen template,
+// the renderer exits immediately with a clear error — no silent fallback.
+const TEMPLATE_ALLOWED_TYPES = {
+  rodschinson_premium: ['title_card', 'text_bullets', 'process_steps', 'quote_card', 'cta_screen'],
+  tech_data:           ['title_card', 'big_number',   'bar_chart',    'comparison_table', 'cta_screen'],
+  news_reel:           ['title_card', 'big_number',   'text_bullets', 'quote_card',       'cta_screen'],
+  corporate_minimal:   ['title_card', 'text_bullets', 'split_screen', 'quote_card',       'cta_screen'],
+  cre:                 ['title_card', 'big_number',   'bar_chart',    'text_bullets',     'cta_screen'],
+  // Reel/story templates — vertical
+  reel_premium:        ['title_card', 'big_number',   'text_bullets', 'bar_chart',        'cta_screen'],
+  reel_data:           ['title_card', 'big_number',   'bar_chart',    'text_bullets',     'cta_screen'],
+  reel_bold:           ['title_card', 'big_number',   'text_bullets', 'quote_card',       'cta_screen'],
+  reel_minimal:        ['title_card', 'text_bullets', 'quote_card',   'cta_screen'],
+  reel_gradient:       ['title_card', 'text_bullets', 'big_number',   'cta_screen'],
+};
+
 // ── PARSE ARGS ───────────────────────────────────────────────────────────────
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -251,8 +268,13 @@ async function renderScene(browser, rawScene, opts) {
     }, scene);
 
     if (!loaded) {
-      console.log(`❌ (loadScene failed — type: ${type})`);
-      return null;
+      // loadScene returned false — the template does not handle this scene type.
+      // This is a hard error: exit immediately so the job fails visibly.
+      console.error(`\n❌ loadScene() returned false for scene ${sid} (type: "${type}")`);
+      console.error(`   Template "${path.basename(templatePath)}" does not implement this scene type.`);
+      console.error(`   This should have been caught by TEMPLATE_ALLOWED_TYPES — check config.\n`);
+      await page.close();
+      process.exit(1);
     }
 
     // Create temp frame directory
@@ -362,8 +384,7 @@ async function main() {
     ? { width: scriptW, height: scriptH, fps: meta.fps || baseQual.fps }
     : baseQual;
 
-  // Resolve template: check known map first, then look for {name}.html on disk,
-  // finally fall back to rodschinson_premium.
+  // Resolve template — no fallback. Unknown template = hard error.
   let tmplPath;
   if (TEMPLATES[tmplName]) {
     tmplPath = path.join(TMPL_DIR, TEMPLATES[tmplName]);
@@ -372,8 +393,9 @@ async function main() {
     if (fs.existsSync(dynamicPath)) {
       tmplPath = dynamicPath;
     } else {
-      console.warn(`  ⚠️  Template "${tmplName}" not found — falling back to rodschinson_premium`);
-      tmplPath = path.join(TMPL_DIR, TEMPLATES.rodschinson_premium);
+      console.error(`❌ Template "${tmplName}" not found. No fallback.`);
+      console.error(`   Available templates: ${Object.keys(TEMPLATES).join(', ')}`);
+      process.exit(1);
     }
   }
 
@@ -381,6 +403,23 @@ async function main() {
     console.error(`❌ Template introuvable : ${tmplPath}`);
     console.error(`   Templates disponibles : ${Object.keys(TEMPLATES).join(', ')}`);
     process.exit(1);
+  }
+
+  // ── Strict scene-type validation ─────────────────────────────────────────
+  // Fail immediately if any scene uses a type not allowed by this template.
+  // No silent fallback — a type mismatch means the script was generated wrong.
+  const allowedTypes = TEMPLATE_ALLOWED_TYPES[tmplName];
+  if (allowedTypes) {
+    const badScenes = scenes.filter(s => !allowedTypes.includes(s.type_visuel));
+    if (badScenes.length > 0) {
+      console.error(`\n❌ Scene type mismatch for template "${tmplName}":`);
+      badScenes.forEach(s =>
+        console.error(`   Scene ${s.id} "${s.nom}" → type "${s.type_visuel}" is not supported`)
+      );
+      console.error(`   Allowed types: ${allowedTypes.join(', ')}`);
+      console.error(`   Fix: regenerate the script using the correct template.\n`);
+      process.exit(1);
+    }
   }
 
   console.log('\n' + '═'.repeat(62));
@@ -433,8 +472,8 @@ async function main() {
     console.log(`  python3 scripts/generate_audio.py --script ${args.script}\n`);
   }
 
-  // Exit 1 only if NOTHING rendered — partial failures still produce a video
-  process.exit(ok.length === 0 ? 1 : 0);
+  // Exit 1 if ANY scene failed — partial renders are not acceptable
+  process.exit(err.length > 0 ? 1 : 0);
 }
 
 main().catch(e => { console.error('Fatal:', e.message); process.exit(1); });
