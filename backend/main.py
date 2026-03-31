@@ -85,6 +85,13 @@ _job_procs: dict[str, asyncio.subprocess.Process]           = {}  # active subpr
 VALID_STATUSES = {"Draft", "Ready", "Approved", "Scheduled", "Published"}
 VALID_SLOTS    = {"morning", "noon", "afternoon", "evening"}
 
+# ── Concurrency guards ─────────────────────────────────────────────────────────
+# Limit simultaneous Puppeteer render jobs to prevent Railway OOM when
+# multiple carousel/video jobs are launched at once (each spawns Chrome).
+_render_semaphore = asyncio.Semaphore(2)
+# Limit simultaneous Claude API calls to reduce 529 overload errors during bulk runs.
+_claude_semaphore = asyncio.Semaphore(2)
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _now() -> str:
@@ -174,15 +181,6 @@ async def _templates_save(entries: list[dict]) -> None:
 # Phases are executed in order; each phase is (label, progress_pct, callable).
 # The callable receives (job, data, paths) and runs the actual subprocess.
 
-def _script_format_for(content_type: str, fmt: str, duration_sec: int = 60) -> tuple[str, float]:
-    """Return (script_format, duree_minutes) for the script generator."""
-    if content_type == "story":
-        return "story", max(0.1, duration_sec / 60)
-    if content_type == "reel" or fmt == "9:16":
-        return "reel", max(0.25, duration_sec / 60)
-    if content_type == "video" and fmt == "16:9":
-        return "youtube", max(1.0, duration_sec / 60)
-    return "linkedin", max(1.0, duration_sec / 60)
 
 
 async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None:
@@ -237,23 +235,325 @@ async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None
         # ════════════════════════════════════════════════════════════════════════
         # VIDEO / REEL / STORY  —  Script → Render → Audio → Assemble
         # ════════════════════════════════════════════════════════════════════════
+
+        # ── Video + Reel template definitions ─────────────────────────────────
+        # Every valid template is declared here with its HTML file, canvas
+        # dimensions, allowed scene types, and exact visuel schemas.
+        # If the user picks a template not in this dict → hard error immediately.
+        VIDEO_TEMPLATES = {
+            # ── Landscape 16:9 — video ────────────────────────────────────────
+            "educational": {
+                "html": "rodschinson_premium", "ratio": "16:9",
+                "w": 1920, "h": 1080, "fps": 24,
+                "style": "Dark navy #08316F, gold #C8A96E, sky blue #00B6FF. Institutional investment house. Elegant, authoritative.",
+                "scenes": ["title_card", "text_bullets", "process_steps", "quote_card", "cta_screen"],
+                "schemas": {
+                    "title_card":    {"titre_principal": "Main headline", "sous_titre": "Subtitle or hook", "eyebrow": "Category · Year"},
+                    "text_bullets":  {"titre": "Section heading", "items": ["Point 1", "Point 2", "Point 3", "Point 4"]},
+                    "process_steps": {"titre": "Process name", "etapes": ["Step 1", "Step 2", "Step 3", "Step 4"], "active": 0},
+                    "quote_card":    {"citation": "Full quote text", "auteur": "Author Name", "source": "Organisation / Role"},
+                    "cta_screen":    {"eyebrow": "Rodschinson Investment", "headline": "CTA headline", "body": "One sentence invitation", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"},
+                },
+            },
+            "data": {
+                "html": "tech_data", "ratio": "16:9",
+                "w": 1920, "h": 1080, "fps": 24,
+                "style": "Very dark #031520, cyan #00B6FF accents. Bloomberg / data terminal. Every number matters.",
+                "scenes": ["title_card", "big_number", "bar_chart", "comparison_table", "cta_screen"],
+                "schemas": {
+                    "title_card":       {"titre_principal": "Main headline", "sous_titre": "Market context", "eyebrow": "Sector · Year"},
+                    "big_number":       {"eyebrow": "Metric label", "valeur": "5.75", "unite": "%", "contexte": "One-line explanation", "formule": ""},
+                    "bar_chart":        {"titre": "Chart title", "series": [{"label": "Category A", "valeur": 5.75}, {"label": "Category B", "valeur": 4.1}], "unite": "%", "source": "Source: CBRE / JLL"},
+                    "comparison_table": {"titre": "Comparison title", "colonne_gauche": {"titre": "Option A", "items": ["Item 1", "Item 2", "Item 3"]}, "colonne_droite": {"titre": "Option B", "items": ["Item 1", "Item 2", "Item 3"]}},
+                    "cta_screen":       {"eyebrow": "Rodschinson Investment", "headline": "CTA headline", "body": "One sentence invitation", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"},
+                },
+            },
+            "news": {
+                "html": "news_reel", "ratio": "16:9",
+                "w": 1920, "h": 1080, "fps": 24,
+                "style": "Dark red/black news broadcast. Breaking news feel, high urgency, ticker-bar style.",
+                "scenes": ["title_card", "big_number", "text_bullets", "quote_card", "cta_screen"],
+                "schemas": {
+                    "title_card":   {"titre_principal": "Breaking headline", "sous_titre": "Context or location", "eyebrow": "BREAKING · Market Update"},
+                    "big_number":   {"eyebrow": "The key stat", "valeur": "12", "unite": "%", "contexte": "Brief explanation of impact", "formule": ""},
+                    "text_bullets": {"titre": "Section heading", "items": ["Key point 1", "Key point 2", "Key point 3"]},
+                    "quote_card":   {"citation": "Impactful quote", "auteur": "Expert Name", "source": "Organisation / Date"},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Stay Ahead of the Market", "body": "One sentence invitation", "cta_text": "Get Market Briefing", "url": "rodschinson.com"},
+                },
+            },
+            "corporate": {
+                "html": "corporate_minimal", "ratio": "16:9",
+                "w": 1920, "h": 1080, "fps": 24,
+                "style": "White/near-black, editorial magazine. Clean whitespace, thought leadership tone.",
+                "scenes": ["title_card", "text_bullets", "split_screen", "quote_card", "cta_screen"],
+                "schemas": {
+                    "title_card":   {"titre_principal": "Thought leadership headline", "sous_titre": "Subtitle or thesis", "eyebrow": "Topic · Year"},
+                    "text_bullets": {"titre": "Section heading", "items": ["Insight 1", "Insight 2", "Insight 3", "Insight 4"]},
+                    "split_screen": {"titre": "Comparison title", "colonne_gauche": {"titre": "Left column", "items": ["Item 1", "Item 2", "Item 3"]}, "colonne_droite": {"titre": "Right column", "items": ["Item 1", "Item 2", "Item 3"]}},
+                    "quote_card":   {"citation": "Key insight or quote", "auteur": "Author Name", "source": "Source / Role"},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "CTA headline", "body": "One sentence invitation", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"},
+                },
+            },
+            "cre": {
+                "html": "cre", "ratio": "16:9",
+                "w": 1920, "h": 1080, "fps": 24,
+                "style": "Very dark background, electric cyan #00B6FF. CRE market data terminal. Professional investor audience.",
+                "scenes": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"],
+                "schemas": {
+                    "title_card":   {"titre_principal": "CRE Market headline", "sous_titre": "Market or asset class context", "eyebrow": "Asset Class · Market"},
+                    "big_number":   {"eyebrow": "Market metric", "valeur": "5.75", "unite": "%", "contexte": "What this yield/return means for investors", "formule": ""},
+                    "bar_chart":    {"titre": "Market comparison", "series": [{"label": "Brussels", "valeur": 5.75}, {"label": "Paris", "valeur": 4.2}, {"label": "Dubai", "valeur": 7.1}], "unite": "%", "source": "Source: CBRE / JLL"},
+                    "text_bullets": {"titre": "Key market factors", "items": ["Driver 1", "Driver 2", "Driver 3", "Driver 4"]},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Ready to Invest?", "body": "One sentence invitation", "cta_text": "Book a Deal Review", "url": "rodschinson.com"},
+                },
+            },
+            # ── Portrait 9:16 — reel / story ─────────────────────────────────
+            "reel_premium": {
+                "html": "reel_premium", "ratio": "9:16",
+                "w": 1080, "h": 1920, "fps": 30,
+                "style": "Dark navy #08316F, gold #C8A96E. Vertical format. Institutional, premium. Each scene is punchy and self-contained.",
+                "scenes": ["title_card", "big_number", "text_bullets", "bar_chart", "cta_screen"],
+                "schemas": {
+                    "title_card":   {"titre_principal": "Hook headline — bold claim", "sous_titre": "One-line context", "eyebrow": "Category"},
+                    "big_number":   {"eyebrow": "The key stat", "valeur": "5.75", "unite": "%", "contexte": "One sentence explaining this number", "formule": ""},
+                    "text_bullets": {"titre": "Section heading", "items": ["Point 1", "Point 2", "Point 3"]},
+                    "bar_chart":    {"titre": "Comparison", "series": [{"label": "A", "valeur": 5.75}, {"label": "B", "valeur": 4.1}], "unite": "%", "source": "CBRE / JLL"},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "CTA headline", "body": "One sentence", "cta_text": "Follow for more", "url": "rodschinson.com"},
+                },
+            },
+            "reel_data": {
+                "html": "reel_data", "ratio": "9:16",
+                "w": 1080, "h": 1920, "fps": 30,
+                "style": "Very dark, cyan #00B6FF. Data terminal vertical. Numbers dominate every scene.",
+                "scenes": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"],
+                "schemas": {
+                    "title_card":   {"titre_principal": "Data-driven hook", "sous_titre": "Market context", "eyebrow": "Market Data"},
+                    "big_number":   {"eyebrow": "Metric label", "valeur": "12.4", "unite": "%", "contexte": "What this number means", "formule": ""},
+                    "bar_chart":    {"titre": "Market comparison", "series": [{"label": "A", "valeur": 5.75}, {"label": "B", "valeur": 4.1}, {"label": "C", "valeur": 3.2}], "unite": "%", "source": "CBRE"},
+                    "text_bullets": {"titre": "Key takeaways", "items": ["Insight 1", "Insight 2", "Insight 3"]},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Want the full analysis?", "body": "One sentence", "cta_text": "Link in bio", "url": "rodschinson.com"},
+                },
+            },
+            "reel_bold": {
+                "html": "reel_bold", "ratio": "9:16",
+                "w": 1080, "h": 1920, "fps": 30,
+                "style": "Black and red, high contrast, high energy. Bold statements. Viral / breaking news feel.",
+                "scenes": ["title_card", "big_number", "text_bullets", "quote_card", "cta_screen"],
+                "schemas": {
+                    "title_card":   {"titre_principal": "Provocative hook — challenge assumptions", "sous_titre": "One punchy line", "eyebrow": "BREAKING"},
+                    "big_number":   {"eyebrow": "The shocking stat", "valeur": "40", "unite": "%", "contexte": "Why this matters right now", "formule": ""},
+                    "text_bullets": {"titre": "The truth about X", "items": ["Bold point 1", "Bold point 2", "Bold point 3"]},
+                    "quote_card":   {"citation": "Strong contrarian quote", "auteur": "Expert or source", "source": "Organisation"},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Don't miss the next one", "body": "Follow for weekly market intel", "cta_text": "Follow Now", "url": "rodschinson.com"},
+                },
+            },
+            "reel_minimal": {
+                "html": "reel_minimal", "ratio": "9:16",
+                "w": 1080, "h": 1920, "fps": 30,
+                "style": "White/near-white, minimal. One idea per scene. Clean editorial typography.",
+                "scenes": ["title_card", "text_bullets", "quote_card", "cta_screen"],
+                "schemas": {
+                    "title_card":   {"titre_principal": "Clean, clear hook", "sous_titre": "Brief context", "eyebrow": "Insight"},
+                    "text_bullets": {"titre": "Key points", "items": ["Point 1", "Point 2", "Point 3"]},
+                    "quote_card":   {"citation": "Memorable quote or insight", "auteur": "Author", "source": "Source"},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Learn more", "body": "One sentence", "cta_text": "Link in bio", "url": "rodschinson.com"},
+                },
+            },
+            "reel_gradient": {
+                "html": "reel_gradient", "ratio": "9:16",
+                "w": 1080, "h": 1920, "fps": 30,
+                "style": "Purple-to-navy gradient, modern social-native aesthetic. Young professional audience.",
+                "scenes": ["title_card", "text_bullets", "big_number", "cta_screen"],
+                "schemas": {
+                    "title_card":   {"titre_principal": "Engaging hook for social", "sous_titre": "One line tease", "eyebrow": "Trend"},
+                    "text_bullets": {"titre": "Here's what you need to know", "items": ["Point 1", "Point 2", "Point 3"]},
+                    "big_number":   {"eyebrow": "The key number", "valeur": "€4.3B", "unite": "", "contexte": "Context for this figure", "formule": ""},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Save this for later", "body": "Follow for more CRE insights", "cta_text": "Follow", "url": "rodschinson.com"},
+                },
+            },
+        }
+
         if content_type in ("video", "reel", "story"):
             duration_sec = int(data.get("duration", 60))
-            script_format, duree = _script_format_for(content_type, fmt, duration_sec)
 
             if not script_path:
-                await step(
-                    "Generating script", 10,
-                    [str(PYTHON), str(SCRIPTS / "generate_video_script.py"),
-                     "--brand", brand_arg, "--sujet", subject,
-                     "--format", script_format, "--duree", str(duree),
-                     "--template", template],
+                # ── Hard error if template is not registered ───────────────────
+                if template not in VIDEO_TEMPLATES:
+                    valid = sorted(VIDEO_TEMPLATES.keys())
+                    raise RuntimeError(
+                        f"Unknown video template '{template}'. "
+                        f"Valid templates: {', '.join(valid)}"
+                    )
+
+                vtpl         = VIDEO_TEMPLATES[template]
+                html_template = vtpl["html"]
+                allowed_types = vtpl["scenes"]
+                schemas       = vtpl["schemas"]
+                canvas_w      = vtpl["w"]
+                canvas_h      = vtpl["h"]
+                canvas_fps    = vtpl["fps"]
+
+                # Scene count: reels/stories are shorter-form (avg 6s/scene, min 3)
+                # Videos are longer-form (avg 8s/scene, min 3, max 8)
+                is_shortform = content_type in ("reel", "story") or vtpl["ratio"] == "9:16"
+                avg_scene_dur = 5 if is_shortform else 8
+                n_scenes = max(3, min(5 if is_shortform else 8, round(duration_sec / avg_scene_dur)))
+
+                lang_map  = {"EN": "English", "FR": "French", "NL": "Dutch"}
+                lang_name = lang_map.get(language.upper(), "English")
+                brand_display = "Rodschinson Investment" if brand_arg == "rodschinson" else "Rachid Chikhi"
+
+                style_hints = {
+                    "viral_hook":  "Hook-first, bold claim, curiosity gap. Scene 1 must grab immediately.",
+                    "educational": "Teach one concept clearly. Build from problem → insight → solution.",
+                    "data_story":  "Lead every scene with a hard number. The data IS the story.",
+                    "personal":    "First person, personal story, authentic voice.",
+                    "provocateur": "Challenge assumptions. Contrarian angle backed by evidence.",
+                    "thread":      "Each scene is a standalone punchy point that builds on the last.",
+                }
+
+                schema_docs = "\n".join(
+                    f'  "{t}": {json.dumps(schemas[t], ensure_ascii=False)}'
+                    for t in allowed_types
                 )
-                files = sorted((OUTPUT / "scripts").glob("script_*.json"),
-                               key=lambda p: p.stat().st_mtime, reverse=True)
-                if not files:
-                    raise RuntimeError("generate_video_script.py produced no JSON output")
-                script_path = files[0]
+
+                video_prompt = f"""You are writing a video script for {brand_display}.
+
+TOPIC: {subject}
+LANGUAGE: {lang_name}
+TEMPLATE: {template} — {vtpl['style']}
+FORMAT: {vtpl['ratio']} ({canvas_w}×{canvas_h}px)
+CONTENT STYLE: {style_hints.get(style, style_hints['educational'])}
+DURATION: approximately {duration_sec} seconds total
+NUMBER OF SCENES: exactly {n_scenes}
+
+ALLOWED SCENE TYPES (use ONLY these — any other type will crash the renderer):
+{', '.join(allowed_types)}
+
+EXACT visuel schema for each scene type:
+{schema_docs}
+
+Return ONLY a valid JSON object with this structure:
+{{
+  "meta": {{
+    "titre": "Video title (max 80 chars)",
+    "brand": "{brand_display}",
+    "template": "{html_template}",
+    "largeur": {canvas_w}, "hauteur": {canvas_h}, "fps": {canvas_fps},
+    "duree_totale_sec": {duration_sec},
+    "langue": "{language.lower()}"
+  }},
+  "scenes": [
+    {{
+      "id": 1,
+      "nom": "scene_slug_no_spaces",
+      "duree_sec": 7,
+      "type_visuel": "title_card",
+      "narration": "Exact words the voiceover will speak for this scene.",
+      "visuel": {{ ...exact fields from schema above, fully filled... }}
+    }}
+  ],
+  "audio": {{
+    "voix_style": "professional et posé",
+    "vitesse_parole": 1.0
+  }}
+}}
+
+Hard rules — violations will crash the render pipeline with no recovery:
+- Scene 1 MUST be type_visuel "title_card"
+- Scene {n_scenes} MUST be type_visuel "cta_screen"
+- EVERY scene MUST have a non-empty narration string
+- EVERY visuel field in the schema MUST be filled with real, specific content
+- For bar_chart: series MUST have at least 2 objects with real numeric valeur
+- For text_bullets / process_steps: items/etapes MUST have at least 3 entries
+- Scene durations must sum to approximately {duration_sec} seconds
+- Use ONLY these {len(allowed_types)} scene types: {', '.join(allowed_types)}
+- No markdown, no explanation — return ONLY the JSON object"""
+
+                anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+                if not anthropic_key:
+                    raise RuntimeError("ANTHROPIC_API_KEY not set in .env")
+
+                _job_update(job, status="running", step="Writing script", progress=10)
+                await _save_job(job)
+
+                _res = None
+                async with _claude_semaphore:
+                    for _attempt in range(4):
+                        async with httpx.AsyncClient(timeout=90) as _client:
+                            _res = await _client.post(
+                                "https://api.anthropic.com/v1/messages",
+                                headers={"x-api-key": anthropic_key, "anthropic-version": "2023-06-01",
+                                         "content-type": "application/json"},
+                                json={"model": "claude-sonnet-4-6", "max_tokens": 4000,
+                                      "messages": [{"role": "user", "content": video_prompt}]},
+                            )
+                        if _res.status_code not in (429, 529):
+                            break
+                        wait = 2 ** (_attempt + 1)
+                        _job_update(job, step=f"API busy — retrying in {wait}s ({_attempt+1}/4)")
+                        await asyncio.sleep(wait)
+
+                if _res is None or _res.status_code != 200:
+                    code = _res.status_code if _res else "no response"
+                    raise RuntimeError(f"Claude API error {code}: {(_res.text[:200] if _res else '')}")
+
+                raw_script = _res.json()["content"][0]["text"].strip()
+                if raw_script.startswith("```"):
+                    raw_script = re.sub(r"^```[a-z]*\n?", "", raw_script)
+                    raw_script = re.sub(r"\n?```$", "", raw_script.strip())
+
+                try:
+                    script_data = json.loads(raw_script)
+                except json.JSONDecodeError as e:
+                    raise RuntimeError(f"Claude returned invalid JSON for script: {e}")
+
+                # ── Strict scene-type validation ───────────────────────────────
+                # Any scene with a type not in this template's allowed list is an
+                # immediate hard error — no fallback, no silent skip.
+                bad_scenes = [
+                    f"scene {s.get('id')} type='{s.get('type_visuel')}'"
+                    for s in script_data.get("scenes", [])
+                    if s.get("type_visuel") not in allowed_types
+                ]
+                if bad_scenes:
+                    raise RuntimeError(
+                        f"Claude generated unsupported scene types for template '{template}': "
+                        f"{', '.join(bad_scenes)}. "
+                        f"Allowed: {', '.join(allowed_types)}"
+                    )
+
+                # Validate required visuel fields are non-empty
+                for s in script_data.get("scenes", []):
+                    vtype = s.get("type_visuel")
+                    visuel = s.get("visuel") or {}
+                    required = {
+                        "title_card":    ["titre_principal"],
+                        "big_number":    ["valeur"],
+                        "bar_chart":     ["series"],
+                        "text_bullets":  ["items"],
+                        "process_steps": ["etapes"],
+                        "cta_screen":    ["headline"],
+                        "quote_card":    ["citation", "auteur"],
+                        "split_screen":  ["colonne_gauche", "colonne_droite"],
+                        "comparison_table": ["colonne_gauche", "colonne_droite"],
+                    }.get(vtype, [])
+                    missing = [f for f in required if not visuel.get(f)]
+                    if missing:
+                        raise RuntimeError(
+                            f"Scene {s.get('id')} ({vtype}) missing required visuel fields: {missing}"
+                        )
+
+                script_dir = OUTPUT / "scripts"
+                script_dir.mkdir(parents=True, exist_ok=True)
+                slug = re.sub(r"[^a-z0-9]+", "-", subject.lower())[:40]
+                script_path = script_dir / f"script_{brand_arg}_{slug}_{job_id[:8]}.json"
+                script_path.write_text(
+                    json.dumps(script_data, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+
+                # Use the template's HTML file for rendering
+                template = html_template
 
             _job_update(job, script_path=str(script_path))
             await _save_job(job)
@@ -407,21 +707,23 @@ Rules:
 - No markdown, no explanation — return ONLY the JSON array."""
 
             # Retry up to 4× on 529 overloaded with exponential backoff
+            # Semaphore limits concurrent Claude calls so bulk runs don't all hit 529 at once.
             _res = None
-            for _attempt in range(4):
-                async with httpx.AsyncClient(timeout=90) as _client:
-                    _res = await _client.post(
-                        "https://api.anthropic.com/v1/messages",
-                        headers={"x-api-key": anthropic_key, "anthropic-version": "2023-06-01",
-                                 "content-type": "application/json"},
-                        json={"model": "claude-sonnet-4-6", "max_tokens": 3000,
-                              "messages": [{"role": "user", "content": carousel_prompt}]},
-                    )
-                if _res.status_code not in (429, 529):
-                    break
-                wait = 2 ** (_attempt + 1)  # 2, 4, 8, 16 s
-                _job_update(job, step=f"API busy — retrying in {wait}s ({_attempt+1}/4)")
-                await asyncio.sleep(wait)
+            async with _claude_semaphore:
+                for _attempt in range(4):
+                    async with httpx.AsyncClient(timeout=90) as _client:
+                        _res = await _client.post(
+                            "https://api.anthropic.com/v1/messages",
+                            headers={"x-api-key": anthropic_key, "anthropic-version": "2023-06-01",
+                                     "content-type": "application/json"},
+                            json={"model": "claude-sonnet-4-6", "max_tokens": 3000,
+                                  "messages": [{"role": "user", "content": carousel_prompt}]},
+                        )
+                    if _res.status_code not in (429, 529):
+                        break
+                    wait = 2 ** (_attempt + 1)  # 2, 4, 8, 16 s
+                    _job_update(job, step=f"API busy — retrying in {wait}s ({_attempt+1}/4)")
+                    await asyncio.sleep(wait)
             if _res is None:
                 raise RuntimeError("Claude API: no response received")
             if _res.status_code != 200:
@@ -460,15 +762,17 @@ Rules:
                 carousel_tmpl = "carousel_bold"
 
             # Render slides via Puppeteer carousel renderer
-            await step(
-                "Rendering slides", 70,
-                ["node", str(PUPPET / "carousel_renderer.js"),
-                 "--slides", str(carousel_out),
-                 "--template", carousel_tmpl,
-                 "--out", str(carousel_dir),
-                 "--prefix", job_prefix],
-                cwd=PUPPET,
-            )
+            # Semaphore limits concurrent Chrome instances to prevent Railway OOM.
+            async with _render_semaphore:
+                await step(
+                    "Rendering slides", 70,
+                    ["node", str(PUPPET / "carousel_renderer.js"),
+                     "--slides", str(carousel_out),
+                     "--template", carousel_tmpl,
+                     "--out", str(carousel_dir),
+                     "--prefix", job_prefix],
+                    cwd=PUPPET,
+                )
 
             # Collect rendered PNGs — renderer outputs {prefix}_01.png … {prefix}_NN.png
             slide_pngs = sorted(carousel_dir.glob(f"{job_prefix}_*.png"))
@@ -718,41 +1022,91 @@ class PreviewRequest(BaseModel):
     language: str = "EN"
     format: str = "16:9"
     contentType: str = "video"
+    template: str = "educational"
+    style: str = "educational"
+    duration: int = 60
 
 
 @app.post("/api/preview-script")
 async def preview_script(body: PreviewRequest):
-    """Run only the script generation step and return the JSON content."""
-    brand_arg = "rachid" if body.brand == "rachid" else "rodschinson"
-    fmt = body.format; content_type = body.contentType
+    """Generate a script preview using the same Claude pipeline as production.
+    Returns the JSON script so the user can review/edit it before triggering full generation."""
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise HTTPException(503, "ANTHROPIC_API_KEY not set in .env")
 
-    if fmt == "9:16" or content_type in ("reel", "story"):
-        script_format = "reel"; duree = 1.0
-    elif content_type == "video" and fmt == "16:9":
-        script_format = "youtube"; duree = 8.0
-    else:
-        script_format = "linkedin"; duree = 3.0
+    # Replicate the VIDEO_TEMPLATES registry from _run_pipeline
+    # (kept in sync manually — single source of truth is _run_pipeline)
+    # (kept in sync manually — single source of truth is _run_pipeline)
+    _PREVIEW_TEMPLATES = {
+        "educational":   {"html": "rodschinson_premium", "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
+        "data":          {"html": "tech_data",           "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
+        "news":          {"html": "news_reel",           "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
+        "corporate":     {"html": "corporate_minimal",   "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
+        "cre":           {"html": "cre",                 "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
+        "reel_premium":  {"html": "reel_premium",        "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
+        "reel_data":     {"html": "reel_data",           "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
+        "reel_bold":     {"html": "reel_bold",           "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
+        "reel_minimal":  {"html": "reel_minimal",        "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
+        "reel_gradient": {"html": "reel_gradient",       "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
+    }
 
-    code, _, err = await _run([
-        str(PYTHON), str(SCRIPTS / "generate_video_script.py"),
-        "--brand", brand_arg,
-        "--sujet", body.subject,
-        "--format", script_format,
-        "--duree", str(duree),
-    ])
-    if code != 0:
-        raise HTTPException(500, f"Script generation failed: {err[-600:]}")
+    tpl_key = body.template
+    if tpl_key not in _PREVIEW_TEMPLATES:
+        raise HTTPException(422, f"Unknown template '{tpl_key}'. Valid: {', '.join(_PREVIEW_TEMPLATES)}")
 
-    # Find the newest script file
-    script_files = sorted((OUTPUT / "scripts").glob("script_*.json"),
-                           key=lambda p: p.stat().st_mtime, reverse=True)
-    if not script_files:
-        raise HTTPException(500, "No script file produced")
+    # Trigger a full script generation job in the background and return job_id,
+    # OR do a synchronous Claude call here for the preview.
+    # We do it synchronously since this endpoint is explicitly for previewing.
+    brand_arg     = "rachid" if body.brand == "rachid" else "rodschinson"
+    brand_display = "Rodschinson Investment" if brand_arg == "rodschinson" else "Rachid Chikhi"
+    lang_map      = {"EN": "English", "FR": "French", "NL": "Dutch"}
+    lang_name     = lang_map.get(body.language.upper(), "English")
+    meta          = _PREVIEW_TEMPLATES[tpl_key]
+    is_shortform  = meta["ratio"] == "9:16"
+    avg_dur       = 5 if is_shortform else 8
+    n_scenes      = max(3, min(5 if is_shortform else 8, round(body.duration / avg_dur)))
 
-    async with aiofiles.open(script_files[0]) as f:
-        script = json.loads(await f.read())
+    style_hints = {
+        "viral_hook":  "Hook-first, bold claim, curiosity gap.",
+        "educational": "Teach one concept clearly. Problem → insight → solution.",
+        "data_story":  "Lead every scene with a hard number.",
+        "personal":    "First person, authentic voice.",
+        "provocateur": "Contrarian angle backed by evidence.",
+        "thread":      "Each scene is a standalone punchy point.",
+    }
 
-    return {"script": script, "path": str(script_files[0])}
+    prompt = f"""You are writing a {n_scenes}-scene video script for {brand_display}.
+TOPIC: {body.subject}
+LANGUAGE: {lang_name}
+TEMPLATE: {tpl_key} ({meta['ratio']}, {meta['w']}×{meta['h']}px)
+CONTENT STYLE: {style_hints.get(body.style, style_hints['educational'])}
+DURATION: ~{body.duration} seconds
+
+Return ONLY a JSON object:
+{{"meta":{{"titre":"...","brand":"{brand_display}","template":"{meta['html']}","largeur":{meta['w']},"hauteur":{meta['h']},"fps":{meta['fps']},"duree_totale_sec":{body.duration},"langue":"{body.language.lower()}"}},"scenes":[{{"id":1,"nom":"intro","duree_sec":7,"type_visuel":"title_card","narration":"...","visuel":{{"titre_principal":"...","sous_titre":"...","eyebrow":"..."}}}}],"audio":{{"voix_style":"professional et posé","vitesse_parole":1.0}}}}
+Scene 1 must be title_card, last scene must be cta_screen. Return ONLY valid JSON."""
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        res = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": "claude-sonnet-4-6", "max_tokens": 3000,
+                  "messages": [{"role": "user", "content": prompt}]},
+        )
+    if res.status_code != 200:
+        raise HTTPException(500, f"Claude API error {res.status_code}: {res.text[:200]}")
+
+    raw = res.json()["content"][0]["text"].strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw.strip())
+    try:
+        script = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(500, f"Claude returned invalid JSON: {e}")
+
+    return {"script": script, "template": tpl_key}
 
 
 # ── Carousel Slide Preview ──────────────────────────────────────────────────────
@@ -1131,8 +1485,28 @@ async def get_carousel_slides(job_id: str):
     if not path.exists():
         raise HTTPException(404, "Carousel file missing on disk")
     slides = json.loads(path.read_text(encoding="utf-8"))
+    # Attach PNG URLs so the frontend can display individual slide thumbnails
+    slide_images = entry.get("slide_images", [])
+    for i, s in enumerate(slides):
+        if i < len(slide_images) and Path(slide_images[i]).exists():
+            s["png_url"] = f"/api/carousel-png/{job_id}/{i}"
     return {"slides": slides}
 
+
+@app.get("/api/carousel-png/{job_id}/{index}")
+async def get_carousel_png(job_id: str, index: int):
+    """Serve a single rendered PNG slide by index."""
+    lib = await _library_load()
+    entry = next((e for e in lib if e.get("job_id") == job_id), None)
+    if not entry:
+        raise HTTPException(404, "Job not found")
+    slide_images = entry.get("slide_images", [])
+    if index < 0 or index >= len(slide_images):
+        raise HTTPException(404, "Slide index out of range")
+    p = Path(slide_images[index])
+    if not p.exists():
+        raise HTTPException(404, "PNG file missing on disk")
+    return FileResponse(str(p), media_type="image/png")
 
 
 @app.get("/api/download/{job_id}")
@@ -1288,7 +1662,6 @@ def _metricool_payload(caption: str, platforms: list[str], pub_dt: str,
     payload: dict = {
         "publicationDate": {"dateTime": pub_dt, "timezone": "UTC"},
     }
-    supported = set(_MC_PLATFORM_FIELD.keys())
     for platform in platforms:
         field = _MC_PLATFORM_FIELD.get(platform)
         if not field:

@@ -116,11 +116,36 @@ export const CONTENT_TYPES = [
 // ─── Template groups ──────────────────────────────────────────────────────────
 const TEMPLATE_GROUPS = {
   video: [
-    { id: 'rodschinson_premium', label: 'Rodschinson Premium', gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E', desc: 'Dark blue · gold · institutional' },
-    { id: 'cre',                 label: 'CRE Terminal',        gradient: 'linear-gradient(135deg,#080E1A,#0d1a30)', accent: '#00E5C8', desc: 'Dark · cyan · data terminal' },
-    { id: 'tech_data',           label: 'Tech Data',           gradient: 'linear-gradient(135deg,#031520,#061e2e)', accent: '#00B6FF', desc: 'Bloomberg · chart-heavy' },
-    { id: 'news_reel',           label: 'News Reel',           gradient: 'linear-gradient(135deg,#1a0505,#2d0f0f)', accent: '#FF4444', desc: 'Breaking news · urgent' },
-    { id: 'corporate_minimal',   label: 'Corporate Minimal',   gradient: 'linear-gradient(135deg,#0a0a0a,#181818)', accent: '#ffffff', desc: 'Clean · editorial · white' },
+    {
+      id: 'educational', label: 'Educational',
+      gradient: 'linear-gradient(135deg,#08316F,#0a3d8a)', accent: '#C8A96E',
+      desc: 'Dark blue · gold · institutional',
+      scenes: ['Title Card', 'Bullet Points', 'Process Steps', 'Quote', 'CTA'],
+    },
+    {
+      id: 'data', label: 'Data & Markets',
+      gradient: 'linear-gradient(135deg,#031520,#061e2e)', accent: '#00B6FF',
+      desc: 'Bloomberg terminal · data-first',
+      scenes: ['Title Card', 'Big Number', 'Bar Chart', 'Comparison Table', 'CTA'],
+    },
+    {
+      id: 'news', label: 'News & Trends',
+      gradient: 'linear-gradient(135deg,#1a0505,#2d0f0f)', accent: '#FF4444',
+      desc: 'Breaking news · broadcast style',
+      scenes: ['Title Card', 'Big Number', 'Bullet Points', 'Quote', 'CTA'],
+    },
+    {
+      id: 'corporate', label: 'Corporate',
+      gradient: 'linear-gradient(135deg,#0a0a0a,#181818)', accent: '#ffffff',
+      desc: 'White · editorial · thought leadership',
+      scenes: ['Title Card', 'Bullet Points', 'Split Screen', 'Quote', 'CTA'],
+    },
+    {
+      id: 'cre', label: 'CRE Market',
+      gradient: 'linear-gradient(135deg,#080E1A,#0d1a30)', accent: '#00E5C8',
+      desc: 'CRE data terminal · investor audience',
+      scenes: ['Title Card', 'Big Number', 'Bar Chart', 'Bullet Points', 'CTA'],
+    },
   ],
   reel: [
     { id: 'reel_premium',  label: 'Premium',  gradient: 'linear-gradient(135deg,#08316F,#041d45)', accent: '#C8A96E', desc: 'Dark blue · gold · institutional' },
@@ -335,20 +360,50 @@ function PipelinePreview({ typeDef }) {
 }
 
 function TemplateCard({ tpl, active, onClick }) {
+  const accentColor = tpl.accent === '#ffffff' ? '#00B6FF' : tpl.accent
   return (
     <div onClick={onClick} style={{
       cursor: 'pointer', borderRadius: 8, overflow: 'hidden', transition: 'all 0.15s',
-      border: active ? `2px solid ${tpl.accent === '#ffffff' ? '#00B6FF' : tpl.accent}` : '2px solid var(--cs-border)',
+      border: active ? `2px solid ${accentColor}` : '2px solid var(--cs-border)',
       transform: active ? 'scale(1.02)' : 'scale(1)',
+      boxShadow: active ? `0 0 0 1px ${accentColor}30` : 'none',
     }}>
-      <div style={{ background: tpl.gradient, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 28, height: 4, borderRadius: 2, background: tpl.accent, opacity: 0.9 }} />
+      {/* Visual swatch */}
+      <div style={{ background: tpl.gradient, height: tpl.scenes ? 52 : 56, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+        {tpl.scenes ? (
+          // Show mini scene-type icons as coloured blocks
+          tpl.scenes.map((s, i) => (
+            <div key={i} title={s} style={{
+              width: 8, height: 28, borderRadius: 2,
+              background: i === 0 ? accentColor : 'rgba(255,255,255,0.2)',
+              opacity: 0.85,
+            }} />
+          ))
+        ) : (
+          <div style={{ width: 28, height: 4, borderRadius: 2, background: tpl.accent, opacity: 0.9 }} />
+        )}
       </div>
+      {/* Label + desc */}
       <div style={{
-        padding: '7px 10px', fontSize: 11, textAlign: 'center',
-        background: active ? 'rgba(0,182,255,0.05)' : 'var(--cs-surface2)',
-        color: active ? '#08316F' : 'var(--cs-text-sub)', fontWeight: active ? 600 : 400,
-      }}>{tpl.label}</div>
+        padding: '6px 8px',
+        background: active ? `${accentColor}0d` : 'var(--cs-surface2)',
+      }}>
+        <div style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? accentColor : 'var(--cs-text-sub)', textAlign: 'center', marginBottom: tpl.scenes ? 4 : 0 }}>
+          {tpl.label}
+        </div>
+        {tpl.scenes && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+            {tpl.scenes.map(s => (
+              <span key={s} style={{
+                fontSize: 9, padding: '1px 4px', borderRadius: 3,
+                background: active ? `${accentColor}18` : 'rgba(0,0,0,0.06)',
+                color: active ? accentColor : 'var(--cs-text-muted)',
+                fontWeight: 500, whiteSpace: 'nowrap',
+              }}>{s}</span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -1022,6 +1077,9 @@ export default function NewContent() {
           subject: form.subject, brand: form.brand,
           language: form.language, format: form.format,
           contentType: form.contentType,
+          template: form.template,
+          style: form.style,
+          duration: form.duration,
         }),
       })
       if (!res.ok) throw new Error(await res.text())
@@ -1085,8 +1143,8 @@ export default function NewContent() {
       const subject = v.title || v.angle || v.hook || form.subject
       const jobId = await handleGenerate(subject)
       if (jobId) { launched++; setBulkCount(launched) }
-      // Small gap so Railway doesn't get hammered simultaneously
-      await new Promise(r => setTimeout(r, 600))
+      // Stagger launches so Railway isn't hit with all 5 Claude + Puppeteer calls at once
+      await new Promise(r => setTimeout(r, 5000))
     }
     setBulkLaunching(false)
     setError(null)
@@ -1652,7 +1710,7 @@ export default function NewContent() {
             )}
 
             {/* Background generation CTA */}
-            <button onClick={handleGenerate} style={{
+            <button onClick={() => handleGenerate()} style={{
               width: '100%', padding: '14px', borderRadius: 8, border: 'none',
               background: 'linear-gradient(135deg,#08316F,#00B6FF)',
               color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
