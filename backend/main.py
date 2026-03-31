@@ -876,22 +876,18 @@ Generate {count} DISTINCT carousel concepts in {lang}.
 Topic: {subject}
 Style directive: {style_hint}
 
-Return ONLY a valid JSON array with exactly {count} objects. Each object:
+Return ONLY a valid JSON array with exactly {count} objects. Each object has ONLY these fields:
 {{
   "id": 1,
   "angle": "one-line creative angle",
-  "title": "carousel title / cover headline",
-  "hook": "cover slide hook — what makes someone swipe",
-  "slides": [
-    {{"index": 1, "type": "title", "headline": "...", "subheadline": "..."}},
-    {{"index": 2, "type": "content", "headline": "point title", "body": "2-3 sentences", "stat": "optional stat"}},
-    ...
-    {{"index": N, "type": "cta", "headline": "...", "body": "follow/DM us...", "hashtags": ["#tag1","#tag2","#tag3"]}}
-  ]
+  "title": "carousel cover headline",
+  "hook": "one sentence — what makes someone swipe",
+  "outline": "slide 1: cover hook. slide 2: key stat. slide 3: main insight. slide 4: proof. slide 5: takeaway. slide 6: CTA."
 }}
 
-Each concept: different angle, 5-8 slides total, first slide type=title, last type=cta.
-Return ONLY the JSON array, no markdown."""
+Rules: no nested arrays, no nested objects, all values are plain strings.
+Each concept must have a radically different angle.
+Return ONLY the JSON array, no markdown, no explanation."""
 
     if content_type == "text_only":
         return f"""You are a content writer for {brand_ctx}.
@@ -972,14 +968,11 @@ async def generate_variations(body: dict):
 
     json_str = m.group()
 
-    def _repair_json(s: str) -> str:
-        """Robust repair of common Claude JSON issues via character scan."""
-        # 1. Smart/curly quotes → straight ASCII quotes
+    def _repair(s: str) -> str:
+        """Fix smart quotes, trailing commas, bare control chars inside strings."""
         s = s.replace('\u201c', '"').replace('\u201d', '"')
         s = s.replace('\u2018', "'").replace('\u2019', "'")
-        # 2. Trailing commas before ] or }
         s = re.sub(r',\s*([}\]])', r'\1', s)
-        # 3. Walk character-by-character: escape any bare control chars inside strings
         out, in_str, esc = [], False, False
         for ch in s:
             if esc:
@@ -989,7 +982,7 @@ async def generate_variations(body: dict):
             elif ch == '"':
                 out.append(ch); in_str = not in_str
             elif in_str:
-                if ch == '\n':   out.append('\\n')
+                if   ch == '\n': out.append('\\n')
                 elif ch == '\r': out.append('\\r')
                 elif ch == '\t': out.append('\\t')
                 else:            out.append(ch)
@@ -997,13 +990,42 @@ async def generate_variations(body: dict):
                 out.append(ch)
         return ''.join(out)
 
-    try:
-        variations = json.loads(json_str)
-    except json.JSONDecodeError:
+    def _extract_objects(s: str) -> list:
+        """Balanced-brace scan: parse each top-level {} independently."""
+        results, depth, start, in_str, esc = [], 0, -1, False, False
+        for i, ch in enumerate(s):
+            if esc:             esc = False; continue
+            if ch == '\\' and in_str: esc = True; continue
+            if ch == '"':       in_str = not in_str; continue
+            if in_str:          continue
+            if ch == '{':
+                if depth == 0: start = i
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0 and start != -1:
+                    chunk = s[start:i + 1]
+                    for attempt in (chunk, _repair(chunk)):
+                        try:
+                            results.append(json.loads(attempt)); break
+                        except json.JSONDecodeError:
+                            pass
+                    start = -1
+        return results
+
+    # Pass 1: parse the whole array
+    for attempt in (json_str, _repair(json_str)):
         try:
-            variations = json.loads(_repair_json(json_str))
-        except json.JSONDecodeError as e:
-            raise HTTPException(502, f"Invalid JSON from Claude: {e}")
+            variations = json.loads(attempt)
+            if isinstance(variations, list) and variations:
+                return {"variations": variations[:count], "content_type": content_type}
+        except json.JSONDecodeError:
+            pass
+
+    # Pass 2: recover individual objects from the broken array
+    variations = _extract_objects(json_str)
+    if not variations:
+        raise HTTPException(502, "Could not parse any variations from Claude response")
 
     return {"variations": variations[:count], "content_type": content_type}
 
