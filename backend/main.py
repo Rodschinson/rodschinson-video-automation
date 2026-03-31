@@ -259,25 +259,25 @@ async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None
                 "html": "tech_data", "ratio": "16:9",
                 "w": 1920, "h": 1080, "fps": 24,
                 "style": "Very dark #031520, cyan #00B6FF accents. Bloomberg / data terminal. Every number matters.",
-                "scenes": ["title_card", "big_number", "bar_chart", "comparison_table", "cta_screen"],
+                "scenes": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"],
                 "schemas": {
-                    "title_card":       {"titre_principal": "Main headline", "sous_titre": "Market context", "eyebrow": "Sector · Year"},
-                    "big_number":       {"eyebrow": "Metric label", "valeur": "5.75", "unite": "%", "contexte": "One-line explanation", "formule": ""},
-                    "bar_chart":        {"titre": "Chart title", "series": [{"label": "Category A", "valeur": 5.75}, {"label": "Category B", "valeur": 4.1}], "unite": "%", "source": "Source: CBRE / JLL"},
-                    "comparison_table": {"titre": "Comparison title", "colonne_gauche": {"titre": "Option A", "items": ["Item 1", "Item 2", "Item 3"]}, "colonne_droite": {"titre": "Option B", "items": ["Item 1", "Item 2", "Item 3"]}},
-                    "cta_screen":       {"eyebrow": "Rodschinson Investment", "headline": "CTA headline", "body": "One sentence invitation", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"},
+                    "title_card":   {"titre_principal": "Main headline", "sous_titre": "Market context", "eyebrow": "Sector · Year"},
+                    "big_number":   {"eyebrow": "Metric label", "valeur": "5.75", "unite": "%", "contexte": "One-line explanation", "formule": ""},
+                    "bar_chart":    {"titre": "Chart title", "series": [{"label": "Category A", "valeur": 5.75}, {"label": "Category B", "valeur": 4.1}], "unite": "%", "source": "Source: CBRE / JLL"},
+                    "text_bullets": {"titre": "Key takeaways", "items": ["Insight 1", "Insight 2", "Insight 3", "Insight 4"]},
+                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "CTA headline", "body": "One sentence invitation", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"},
                 },
             },
             "news": {
                 "html": "news_reel", "ratio": "16:9",
                 "w": 1920, "h": 1080, "fps": 24,
                 "style": "Dark red/black news broadcast. Breaking news feel, high urgency, ticker-bar style.",
-                "scenes": ["title_card", "big_number", "text_bullets", "quote_card", "cta_screen"],
+                "scenes": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"],
                 "schemas": {
                     "title_card":   {"titre_principal": "Breaking headline", "sous_titre": "Context or location", "eyebrow": "BREAKING · Market Update"},
                     "big_number":   {"eyebrow": "The key stat", "valeur": "12", "unite": "%", "contexte": "Brief explanation of impact", "formule": ""},
-                    "text_bullets": {"titre": "Section heading", "items": ["Key point 1", "Key point 2", "Key point 3"]},
-                    "quote_card":   {"citation": "Impactful quote", "auteur": "Expert Name", "source": "Organisation / Date"},
+                    "bar_chart":    {"titre": "Chart title", "series": [{"label": "Category A", "valeur": 5.75}, {"label": "Category B", "valeur": 4.1}], "unite": "%", "source": "Source: CBRE / JLL"},
+                    "text_bullets": {"titre": "Key points", "items": ["Key point 1", "Key point 2", "Key point 3", "Key point 4"]},
                     "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Stay Ahead of the Market", "body": "One sentence invitation", "cta_text": "Get Market Briefing", "url": "rodschinson.com"},
                 },
             },
@@ -285,13 +285,13 @@ async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None
                 "html": "corporate_minimal", "ratio": "16:9",
                 "w": 1920, "h": 1080, "fps": 24,
                 "style": "White/near-black, editorial magazine. Clean whitespace, thought leadership tone.",
-                "scenes": ["title_card", "text_bullets", "split_screen", "quote_card", "cta_screen"],
+                "scenes": ["title_card", "text_bullets", "split_screen", "process_steps", "cta_screen"],
                 "schemas": {
-                    "title_card":   {"titre_principal": "Thought leadership headline", "sous_titre": "Subtitle or thesis", "eyebrow": "Topic · Year"},
-                    "text_bullets": {"titre": "Section heading", "items": ["Insight 1", "Insight 2", "Insight 3", "Insight 4"]},
-                    "split_screen": {"titre": "Comparison title", "colonne_gauche": {"titre": "Left column", "items": ["Item 1", "Item 2", "Item 3"]}, "colonne_droite": {"titre": "Right column", "items": ["Item 1", "Item 2", "Item 3"]}},
-                    "quote_card":   {"citation": "Key insight or quote", "auteur": "Author Name", "source": "Source / Role"},
-                    "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "CTA headline", "body": "One sentence invitation", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"},
+                    "title_card":    {"titre_principal": "Thought leadership headline", "sous_titre": "Subtitle or thesis", "eyebrow": "Topic · Year"},
+                    "text_bullets":  {"titre": "Section heading", "items": ["Insight 1", "Insight 2", "Insight 3", "Insight 4"]},
+                    "split_screen":  {"titre": "Comparison title", "colonne_gauche": {"titre": "Left column", "items": ["Item 1", "Item 2", "Item 3"]}, "colonne_droite": {"titre": "Right column", "items": ["Item 1", "Item 2", "Item 3"]}},
+                    "process_steps": {"titre": "Process name", "etapes": ["Step 1", "Step 2", "Step 3", "Step 4"], "active": 0},
+                    "cta_screen":    {"eyebrow": "Rodschinson Investment", "headline": "CTA headline", "body": "One sentence invitation", "cta_text": "Consultation Gratuite — 30 min", "url": "rodschinson.com"},
                 },
             },
             "cre": {
@@ -338,12 +338,12 @@ async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None
                 "html": "reel_bold", "ratio": "9:16",
                 "w": 1080, "h": 1920, "fps": 30,
                 "style": "Black and red, high contrast, high energy. Bold statements. Viral / breaking news feel.",
-                "scenes": ["title_card", "big_number", "text_bullets", "quote_card", "cta_screen"],
+                "scenes": ["title_card", "big_number", "text_bullets", "bar_chart", "cta_screen"],
                 "schemas": {
                     "title_card":   {"titre_principal": "Provocative hook — challenge assumptions", "sous_titre": "One punchy line", "eyebrow": "BREAKING"},
                     "big_number":   {"eyebrow": "The shocking stat", "valeur": "40", "unite": "%", "contexte": "Why this matters right now", "formule": ""},
                     "text_bullets": {"titre": "The truth about X", "items": ["Bold point 1", "Bold point 2", "Bold point 3"]},
-                    "quote_card":   {"citation": "Strong contrarian quote", "auteur": "Expert or source", "source": "Organisation"},
+                    "bar_chart":    {"titre": "Market data", "series": [{"label": "A", "valeur": 40}, {"label": "B", "valeur": 25}, {"label": "C", "valeur": 18}], "unite": "%", "source": "Source: CBRE / JLL"},
                     "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Don't miss the next one", "body": "Follow for weekly market intel", "cta_text": "Follow Now", "url": "rodschinson.com"},
                 },
             },
@@ -351,11 +351,12 @@ async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None
                 "html": "reel_minimal", "ratio": "9:16",
                 "w": 1080, "h": 1920, "fps": 30,
                 "style": "White/near-white, minimal. One idea per scene. Clean editorial typography.",
-                "scenes": ["title_card", "text_bullets", "quote_card", "cta_screen"],
+                "scenes": ["title_card", "big_number", "text_bullets", "bar_chart", "cta_screen"],
                 "schemas": {
                     "title_card":   {"titre_principal": "Clean, clear hook", "sous_titre": "Brief context", "eyebrow": "Insight"},
+                    "big_number":   {"eyebrow": "The key stat", "valeur": "5.75", "unite": "%", "contexte": "One-line explanation", "formule": ""},
                     "text_bullets": {"titre": "Key points", "items": ["Point 1", "Point 2", "Point 3"]},
-                    "quote_card":   {"citation": "Memorable quote or insight", "auteur": "Author", "source": "Source"},
+                    "bar_chart":    {"titre": "Comparison", "series": [{"label": "A", "valeur": 5.75}, {"label": "B", "valeur": 4.1}], "unite": "%", "source": "Source"},
                     "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Learn more", "body": "One sentence", "cta_text": "Link in bio", "url": "rodschinson.com"},
                 },
             },
@@ -363,11 +364,12 @@ async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None
                 "html": "reel_gradient", "ratio": "9:16",
                 "w": 1080, "h": 1920, "fps": 30,
                 "style": "Purple-to-navy gradient, modern social-native aesthetic. Young professional audience.",
-                "scenes": ["title_card", "text_bullets", "big_number", "cta_screen"],
+                "scenes": ["title_card", "big_number", "text_bullets", "bar_chart", "cta_screen"],
                 "schemas": {
                     "title_card":   {"titre_principal": "Engaging hook for social", "sous_titre": "One line tease", "eyebrow": "Trend"},
+                    "big_number":   {"eyebrow": "The key number", "valeur": "4.3", "unite": "Mds €", "contexte": "Context for this figure", "formule": ""},
                     "text_bullets": {"titre": "Here's what you need to know", "items": ["Point 1", "Point 2", "Point 3"]},
-                    "big_number":   {"eyebrow": "The key number", "valeur": "€4.3B", "unite": "", "contexte": "Context for this figure", "formule": ""},
+                    "bar_chart":    {"titre": "Market overview", "series": [{"label": "A", "valeur": 5.75}, {"label": "B", "valeur": 4.1}], "unite": "%", "source": "Source"},
                     "cta_screen":   {"eyebrow": "Rodschinson Investment", "headline": "Save this for later", "body": "Follow for more CRE insights", "cta_text": "Follow", "url": "rodschinson.com"},
                 },
             },
@@ -1039,16 +1041,26 @@ async def preview_script(body: PreviewRequest):
     # (kept in sync manually — single source of truth is _run_pipeline)
     # (kept in sync manually — single source of truth is _run_pipeline)
     _PREVIEW_TEMPLATES = {
-        "educational":   {"html": "rodschinson_premium", "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
-        "data":          {"html": "tech_data",           "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
-        "news":          {"html": "news_reel",           "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
-        "corporate":     {"html": "corporate_minimal",   "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
-        "cre":           {"html": "cre",                 "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24},
-        "reel_premium":  {"html": "reel_premium",        "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
-        "reel_data":     {"html": "reel_data",           "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
-        "reel_bold":     {"html": "reel_bold",           "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
-        "reel_minimal":  {"html": "reel_minimal",        "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
-        "reel_gradient": {"html": "reel_gradient",       "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30},
+        "educational":   {"html": "rodschinson_premium", "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24,
+                          "scenes": ["title_card", "text_bullets", "process_steps", "quote_card", "cta_screen"]},
+        "data":          {"html": "tech_data",           "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24,
+                          "scenes": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"]},
+        "news":          {"html": "news_reel",           "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24,
+                          "scenes": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"]},
+        "corporate":     {"html": "corporate_minimal",   "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24,
+                          "scenes": ["title_card", "text_bullets", "split_screen", "process_steps", "cta_screen"]},
+        "cre":           {"html": "cre",                 "ratio": "16:9", "w": 1920, "h": 1080, "fps": 24,
+                          "scenes": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"]},
+        "reel_premium":  {"html": "reel_premium",        "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30,
+                          "scenes": ["title_card", "big_number", "text_bullets", "bar_chart", "cta_screen"]},
+        "reel_data":     {"html": "reel_data",           "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30,
+                          "scenes": ["title_card", "big_number", "bar_chart", "text_bullets", "cta_screen"]},
+        "reel_bold":     {"html": "reel_bold",           "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30,
+                          "scenes": ["title_card", "big_number", "text_bullets", "bar_chart", "cta_screen"]},
+        "reel_minimal":  {"html": "reel_minimal",        "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30,
+                          "scenes": ["title_card", "big_number", "text_bullets", "bar_chart", "cta_screen"]},
+        "reel_gradient": {"html": "reel_gradient",       "ratio": "9:16", "w": 1080, "h": 1920, "fps": 30,
+                          "scenes": ["title_card", "big_number", "text_bullets", "bar_chart", "cta_screen"]},
     }
 
     tpl_key = body.template
@@ -1076,12 +1088,16 @@ async def preview_script(body: PreviewRequest):
         "thread":      "Each scene is a standalone punchy point.",
     }
 
+    allowed_types = meta["scenes"]
     prompt = f"""You are writing a {n_scenes}-scene video script for {brand_display}.
 TOPIC: {body.subject}
 LANGUAGE: {lang_name}
 TEMPLATE: {tpl_key} ({meta['ratio']}, {meta['w']}×{meta['h']}px)
 CONTENT STYLE: {style_hints.get(body.style, style_hints['educational'])}
 DURATION: ~{body.duration} seconds
+
+ALLOWED SCENE TYPES (use ONLY these — any other type will crash the renderer):
+{', '.join(allowed_types)}
 
 Return ONLY a JSON object:
 {{"meta":{{"titre":"...","brand":"{brand_display}","template":"{meta['html']}","largeur":{meta['w']},"hauteur":{meta['h']},"fps":{meta['fps']},"duree_totale_sec":{body.duration},"langue":"{body.language.lower()}"}},"scenes":[{{"id":1,"nom":"intro","duree_sec":7,"type_visuel":"title_card","narration":"...","visuel":{{"titre_principal":"...","sous_titre":"...","eyebrow":"..."}}}}],"audio":{{"voix_style":"professional et posé","vitesse_parole":1.0}}}}
