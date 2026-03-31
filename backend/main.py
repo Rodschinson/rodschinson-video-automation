@@ -366,14 +366,24 @@ Slide 1 must be type "title". Last slide must be type "cta". Middle slides type 
 For "stat" fields use format "VALUE — description" (e.g. "42% — of investors cite…").
 No markdown, no explanation — just the JSON array."""
 
-            async with httpx.AsyncClient(timeout=60) as _client:
-                _res = await _client.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers={"x-api-key": anthropic_key, "anthropic-version": "2023-06-01",
-                             "content-type": "application/json"},
-                    json={"model": "claude-sonnet-4-6", "max_tokens": 3000,
-                          "messages": [{"role": "user", "content": carousel_prompt}]},
-                )
+            # Retry up to 4× on 529 overloaded with exponential backoff
+            _res = None
+            for _attempt in range(4):
+                async with httpx.AsyncClient(timeout=90) as _client:
+                    _res = await _client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={"x-api-key": anthropic_key, "anthropic-version": "2023-06-01",
+                                 "content-type": "application/json"},
+                        json={"model": "claude-sonnet-4-6", "max_tokens": 3000,
+                              "messages": [{"role": "user", "content": carousel_prompt}]},
+                    )
+                if _res.status_code not in (429, 529):
+                    break
+                wait = 2 ** (_attempt + 1)  # 2, 4, 8, 16 s
+                _job_update(job, step=f"API busy — retrying in {wait}s ({_attempt+1}/4)")
+                await asyncio.sleep(wait)
+            if _res is None:
+                raise RuntimeError("Claude API: no response received")
             if _res.status_code != 200:
                 raise RuntimeError(f"Claude API error {_res.status_code}: {_res.text[:200]}")
 
@@ -543,14 +553,23 @@ Return ONLY the post text, nothing else."""
             if not anthropic_key:
                 raise RuntimeError("ANTHROPIC_API_KEY not set in .env")
 
-            async with httpx.AsyncClient(timeout=60) as _client:
-                _res = await _client.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers={"x-api-key": anthropic_key, "anthropic-version": "2023-06-01",
-                             "content-type": "application/json"},
-                    json={"model": "claude-sonnet-4-6", "max_tokens": 1500,
-                          "messages": [{"role": "user", "content": post_prompt}]},
-                )
+            _res = None
+            for _attempt in range(4):
+                async with httpx.AsyncClient(timeout=90) as _client:
+                    _res = await _client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={"x-api-key": anthropic_key, "anthropic-version": "2023-06-01",
+                                 "content-type": "application/json"},
+                        json={"model": "claude-sonnet-4-6", "max_tokens": 1500,
+                              "messages": [{"role": "user", "content": post_prompt}]},
+                    )
+                if _res.status_code not in (429, 529):
+                    break
+                wait = 2 ** (_attempt + 1)
+                _job_update(job, step=f"API busy — retrying in {wait}s ({_attempt+1}/4)")
+                await asyncio.sleep(wait)
+            if _res is None:
+                raise RuntimeError("Claude API: no response received")
             if _res.status_code != 200:
                 raise RuntimeError(f"Claude API error {_res.status_code}: {_res.text[:200]}")
             post_text = _res.json()["content"][0]["text"].strip()
@@ -741,14 +760,21 @@ Return ONLY a JSON array with exactly {num_slides} objects:
 Slide 1 = title. Last slide = cta. All middle slides = content.
 No markdown, no explanation — JSON array only."""
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        res = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
-                     "content-type": "application/json"},
-            json={"model": "claude-sonnet-4-6", "max_tokens": 3000,
-                  "messages": [{"role": "user", "content": prompt}]},
-        )
+    res = None
+    for _attempt in range(4):
+        async with httpx.AsyncClient(timeout=90) as client:
+            res = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                         "content-type": "application/json"},
+                json={"model": "claude-sonnet-4-6", "max_tokens": 3000,
+                      "messages": [{"role": "user", "content": prompt}]},
+            )
+        if res.status_code not in (429, 529):
+            break
+        await asyncio.sleep(2 ** (_attempt + 1))
+    if res is None:
+        raise HTTPException(502, "Claude API: no response received")
     if res.status_code != 200:
         raise HTTPException(502, f"Claude API error {res.status_code}: {res.text[:200]}")
 
