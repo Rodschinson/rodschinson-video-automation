@@ -68,17 +68,19 @@ const TEMPLATES = {
 // If a scene's type_visuel is not in this list for the chosen template,
 // the renderer exits immediately with a clear error — no silent fallback.
 const TEMPLATE_ALLOWED_TYPES = {
+  // Landscape 16:9 — video templates
+  // Only list types that have an explicit SCENE_BUILDERS entry in the HTML file.
   rodschinson_premium: ['title_card', 'text_bullets', 'process_steps', 'quote_card', 'cta_screen'],
-  tech_data:           ['title_card', 'big_number',   'bar_chart',    'comparison_table', 'cta_screen'],
-  news_reel:           ['title_card', 'big_number',   'text_bullets', 'quote_card',       'cta_screen'],
-  corporate_minimal:   ['title_card', 'text_bullets', 'split_screen', 'quote_card',       'cta_screen'],
-  cre:                 ['title_card', 'big_number',   'bar_chart',    'text_bullets',     'cta_screen'],
-  // Reel/story templates — vertical
-  reel_premium:        ['title_card', 'big_number',   'text_bullets', 'bar_chart',        'cta_screen'],
-  reel_data:           ['title_card', 'big_number',   'bar_chart',    'text_bullets',     'cta_screen'],
-  reel_bold:           ['title_card', 'big_number',   'text_bullets', 'quote_card',       'cta_screen'],
-  reel_minimal:        ['title_card', 'text_bullets', 'quote_card',   'cta_screen'],
-  reel_gradient:       ['title_card', 'text_bullets', 'big_number',   'cta_screen'],
+  tech_data:           ['title_card', 'big_number',   'bar_chart',    'text_bullets',  'cta_screen'],
+  news_reel:           ['title_card', 'big_number',   'bar_chart',    'text_bullets',  'cta_screen'],
+  corporate_minimal:   ['title_card', 'text_bullets', 'split_screen', 'process_steps', 'cta_screen'],
+  cre:                 ['title_card', 'big_number',   'bar_chart',    'text_bullets',  'cta_screen'],
+  // Portrait 9:16 — reel / story templates
+  reel_premium:        ['title_card', 'big_number',   'text_bullets', 'bar_chart',     'cta_screen'],
+  reel_data:           ['title_card', 'big_number',   'bar_chart',    'text_bullets',  'cta_screen'],
+  reel_bold:           ['title_card', 'big_number',   'text_bullets', 'bar_chart',     'cta_screen'],
+  reel_minimal:        ['title_card', 'big_number',   'text_bullets', 'bar_chart',     'cta_screen'],
+  reel_gradient:       ['title_card', 'big_number',   'text_bullets', 'bar_chart',     'cta_screen'],
 };
 
 // ── PARSE ARGS ───────────────────────────────────────────────────────────────
