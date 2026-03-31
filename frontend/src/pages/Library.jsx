@@ -326,14 +326,289 @@ function ModalActions({ item, onStatusChange, onRegenerate, onDelete, onClose })
 }
 
 
+// ─── Platform preview chrome ─────────────────────────────────────────────────
+
+const PLATFORM_META = {
+  linkedin:  { name: 'LinkedIn',  color: '#0077B5', bg: '#F3F2EF', dark: false, icon: '💼' },
+  youtube:   { name: 'YouTube',   color: '#FF0000', bg: '#0F0F0F', dark: true,  icon: '▶' },
+  tiktok:    { name: 'TikTok',    color: '#ff2d55', bg: '#000000', dark: true,  icon: '♪' },
+  instagram: { name: 'Instagram', color: '#E1306C', bg: '#FAFAFA', dark: false, icon: '📷' },
+  facebook:  { name: 'Facebook',  color: '#1877F2', bg: '#F0F2F5', dark: false, icon: 'f' },
+}
+
+function ContentThumbnail({ item, slides, height = 220, borderRadius = 0 }) {
+  const gradient = TEMPLATE_GRADIENTS[item.template] || 'linear-gradient(135deg,#08316F,#0d1a30)'
+  const type = TYPE_META[item.content_type] || { icon: '📄' }
+
+  if (item.content_type === 'carousel' && slides?.length) {
+    const firstPng = slides[0]?.png_url
+    if (firstPng) {
+      return <img src={firstPng} alt="" style={{ width: '100%', height, objectFit: 'cover', display: 'block', borderRadius }} />
+    }
+    // Render first slide data as a mini card
+    const s = slides[0]
+    return (
+      <div style={{ width: '100%', height, background: 'linear-gradient(135deg,#08316F,#00B6FF)', borderRadius, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 16px', textAlign: 'center', boxSizing: 'border-box' }}>
+        {s?.tag && <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>{s.tag}</div>}
+        <div style={{ color: '#fff', fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>{(s?.headline || item.title || '').replace(/\\n/g, ' ')}</div>
+        {s?.subheadline && <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 6 }}>{s.subheadline}</div>}
+      </div>
+    )
+  }
+  if (['video','reel','story'].includes(item.content_type) && item.output_file) {
+    return <video src={`/api/video/${item.job_id}`} style={{ width: '100%', height, objectFit: 'cover', display: 'block', borderRadius }} />
+  }
+  if (item.content_type === 'image_post' && item.output_file) {
+    return <img src={`/api/image/${item.job_id}`} alt="" style={{ width: '100%', height, objectFit: 'cover', display: 'block', borderRadius }} />
+  }
+  return (
+    <div style={{ width: '100%', height, background: gradient, borderRadius, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: 36 }}>{type.icon}</div>
+      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 6 }}>{item.format}</div>
+    </div>
+  )
+}
+
+function LinkedInPreview({ item, slides }) {
+  const isPortrait  = item.format === '9:16'
+  const postText    = item.output_text?.slice(0, 220) || item.title
+  const isCarousel  = item.content_type === 'carousel'
+  const slideCount  = slides?.length || 0
+  return (
+    <div style={{ background: '#F3F2EF', padding: '12px 0', minHeight: 300 }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', background: '#fff', borderRadius: 8, boxShadow: '0 0 0 1px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#08316F,#C8A96E)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+            {initials(item.brand)}
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#000', lineHeight: 1.2 }}>
+              {item.brand === 'rachid' ? 'Rachid Chikhi' : 'Rodschinson Investment'}
+            </div>
+            <div style={{ fontSize: 12, color: '#666', lineHeight: 1.3 }}>
+              {item.brand === 'rachid' ? 'Managing Partner · CRE Investor' : 'Commercial Real Estate · Belgium'}
+            </div>
+            <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>2h · <span style={{ fontSize: 10 }}>🌐</span></div>
+          </div>
+          <div style={{ marginLeft: 'auto', color: '#0077B5', fontSize: 18 }}>···</div>
+        </div>
+        {/* Text */}
+        <div style={{ padding: '0 16px 10px', fontSize: 13, color: '#000', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+          {postText}{postText.length >= 220 ? '…' : ''}
+          {isCarousel && <span style={{ color: '#0077B5', cursor: 'pointer' }}> see more</span>}
+        </div>
+        {/* Media */}
+        <div style={{ position: 'relative' }}>
+          <ContentThumbnail item={item} slides={slides} height={isPortrait ? 340 : 240} />
+          {isCarousel && slideCount > 1 && (
+            <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 4 }}>
+              1 / {slideCount}
+            </div>
+          )}
+          {isCarousel && (
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{item.title?.slice(0,50)}</div>
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>{slideCount} slides ›</div>
+            </div>
+          )}
+        </div>
+        {/* Reactions */}
+        <div style={{ padding: '8px 16px', borderTop: '1px solid #eee', display: 'flex', gap: 0 }}>
+          {[['👍 Like','#666'], ['💬 Comment','#666'], ['🔁 Repost','#666'], ['✈️ Send','#666']].map(([label, color]) => (
+            <button key={label} style={{ flex: 1, padding: '6px 4px', border: 'none', background: 'none', cursor: 'pointer', color, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 4 }}>{label}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function YouTubePreview({ item, slides }) {
+  const isPortrait = item.format === '9:16'
+  const isShort    = isPortrait || item.content_type === 'reel'
+  return (
+    <div style={{ background: '#0F0F0F', padding: 12, minHeight: 300 }}>
+      <div style={{ maxWidth: 520, margin: '0 auto' }}>
+        {/* Thumbnail */}
+        <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden' }}>
+          <ContentThumbnail item={item} slides={slides} height={isPortrait ? 340 : 240} />
+          <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.8)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 5px', borderRadius: 3 }}>
+            {isShort ? 'SHORT' : item.format === '16:9' ? '0:60' : '0:45'}
+          </div>
+        </div>
+        {/* Info row */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'flex-start' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#08316F,#C8A96E)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700 }}>
+            {initials(item.brand)}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: '#fff', fontSize: 13, fontWeight: 600, lineHeight: 1.3, marginBottom: 4 }}>{item.title}</div>
+            <div style={{ color: '#aaa', fontSize: 11 }}>
+              {item.brand === 'rachid' ? 'Rachid Chikhi' : 'Rodschinson Investment'} · 1.2K views · 2 hours ago
+            </div>
+          </div>
+          <div style={{ color: '#aaa', fontSize: 18, cursor: 'pointer' }}>⋮</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TikTokPreview({ item, slides }) {
+  return (
+    <div style={{ background: '#000', display: 'flex', justifyContent: 'center', padding: '12px 0', minHeight: 300 }}>
+      {/* Phone frame */}
+      <div style={{ width: 220, position: 'relative', borderRadius: 16, overflow: 'hidden', border: '2px solid #333' }}>
+        <ContentThumbnail item={item} slides={slides} height={390} />
+        {/* Right action bar */}
+        <div style={{ position: 'absolute', right: 6, bottom: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+          {[['❤️','842'],['💬','24'],['🔖',''],['↗️','']].map(([icon, count], i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <div style={{ fontSize: 22, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }}>{icon}</div>
+              {count && <div style={{ color: '#fff', fontSize: 10, fontWeight: 700, textShadow: '0 1px 3px #000' }}>{count}</div>}
+            </div>
+          ))}
+        </div>
+        {/* Bottom overlay */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent,rgba(0,0,0,0.8))', padding: '20px 10px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#08316F,#C8A96E)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 700 }}>{initials(item.brand)}</div>
+            <div style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>@{item.brand === 'rachid' ? 'rachid.chikhi' : 'rodschinson'}</div>
+          </div>
+          <div style={{ color: '#fff', fontSize: 11, lineHeight: 1.4, marginBottom: 6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{item.title}</div>
+          <div style={{ color: '#fff', fontSize: 10, opacity: 0.7 }}>♫ Original sound</div>
+        </div>
+        {/* Top TikTok bar */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(rgba(0,0,0,0.5),transparent)' }}>
+          <span style={{ color: '#fff', fontSize: 12, opacity: 0.8 }}>Following</span>
+          <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, borderBottom: '2px solid #fff' }}>For You</span>
+          <span style={{ color: '#fff', fontSize: 12, opacity: 0.8 }}>LIVE</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InstagramPreview({ item, slides }) {
+  const isPortrait = item.format === '9:16'
+  const isCarousel = item.content_type === 'carousel'
+  const slideCount = slides?.length || 0
+  return (
+    <div style={{ background: '#FAFAFA', padding: '12px 0', minHeight: 300 }}>
+      <div style={{ maxWidth: 420, margin: '0 auto', background: '#fff', border: '1px solid #dbdbdb', borderRadius: 8, overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', padding: 2 }}>
+            <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg,#08316F,#C8A96E)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 8, fontWeight: 700 }}>{initials(item.brand)}</div>
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#000' }}>{item.brand === 'rachid' ? 'rachid.chikhi' : 'rodschinson_invest'}</div>
+            <div style={{ fontSize: 11, color: '#888' }}>Belgium</div>
+          </div>
+          <div style={{ color: '#000', fontSize: 18 }}>···</div>
+        </div>
+        {/* Media */}
+        <div style={{ position: 'relative' }}>
+          <ContentThumbnail item={item} slides={slides} height={isPortrait ? 380 : 280} />
+          {isCarousel && slideCount > 1 && (
+            <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4 }}>
+              {Array.from({ length: Math.min(slideCount, 5) }).map((_, i) => (
+                <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: i === 0 ? '#0095f6' : 'rgba(255,255,255,0.7)' }} />
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Actions */}
+        <div style={{ padding: '10px 14px 4px', display: 'flex', gap: 14, alignItems: 'center' }}>
+          <span style={{ fontSize: 22, cursor: 'pointer' }}>🤍</span>
+          <span style={{ fontSize: 22, cursor: 'pointer' }}>💬</span>
+          <span style={{ fontSize: 22, cursor: 'pointer' }}>✈️</span>
+          <span style={{ marginLeft: 'auto', fontSize: 22, cursor: 'pointer' }}>🔖</span>
+        </div>
+        <div style={{ padding: '0 14px', fontSize: 12, fontWeight: 700, color: '#000', marginBottom: 4 }}>842 likes</div>
+        <div style={{ padding: '0 14px 10px', fontSize: 13, color: '#000', lineHeight: 1.4 }}>
+          <span style={{ fontWeight: 700 }}>{item.brand === 'rachid' ? 'rachid.chikhi' : 'rodschinson_invest'}</span>
+          {' '}{item.title?.slice(0, 100)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FacebookPreview({ item, slides }) {
+  return (
+    <div style={{ background: '#F0F2F5', padding: '12px 0', minHeight: 300 }}>
+      <div style={{ maxWidth: 500, margin: '0 auto', background: '#fff', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#08316F,#C8A96E)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{initials(item.brand)}</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#050505' }}>{item.brand === 'rachid' ? 'Rachid Chikhi' : 'Rodschinson Investment'}</div>
+            <div style={{ fontSize: 11, color: '#65676B', display: 'flex', alignItems: 'center', gap: 4 }}>
+              2h · <span style={{ fontSize: 12 }}>🌐</span>
+            </div>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, color: '#65676B' }}>
+            <span style={{ cursor: 'pointer', fontSize: 18 }}>···</span>
+            <span style={{ cursor: 'pointer', fontSize: 16 }}>✕</span>
+          </div>
+        </div>
+        <div style={{ padding: '0 16px 10px', fontSize: 14, color: '#050505', lineHeight: 1.5 }}>
+          {(item.output_text?.slice(0, 180) || item.title)}
+          {(item.output_text?.length || 0) > 180 && <span style={{ color: '#65676B' }}>… See more</span>}
+        </div>
+        {/* Media */}
+        <ContentThumbnail item={item} slides={slides} height={240} />
+        {/* Counts */}
+        <div style={{ padding: '6px 16px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E4E6EB' }}>
+          <div style={{ fontSize: 13, color: '#65676B', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>👍❤️😮</span> 342
+          </div>
+          <div style={{ fontSize: 13, color: '#65676B' }}>24 comments · 8 shares</div>
+        </div>
+        {/* Action bar */}
+        <div style={{ padding: '4px 8px', display: 'flex' }}>
+          {[['👍 Like','#65676B'],['💬 Comment','#65676B'],['↗️ Share','#65676B']].map(([label, color]) => (
+            <button key={label} style={{ flex: 1, padding: '8px 4px', border: 'none', background: 'none', cursor: 'pointer', color, fontSize: 13, fontWeight: 600, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>{label}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PlatformPreviewPane({ item, platform, slides }) {
+  if (platform === 'linkedin')  return <LinkedInPreview  item={item} slides={slides} />
+  if (platform === 'youtube')   return <YouTubePreview   item={item} slides={slides} />
+  if (platform === 'tiktok')    return <TikTokPreview    item={item} slides={slides} />
+  if (platform === 'instagram') return <InstagramPreview item={item} slides={slides} />
+  if (platform === 'facebook')  return <FacebookPreview  item={item} slides={slides} />
+  return null
+}
+
+// ─── Preview modal ────────────────────────────────────────────────────────────
+
 function PreviewModal({ item, onClose, onStatusChange, onRegenerate, onDelete }) {
   const gradient = TEMPLATE_GRADIENTS[item.template] || 'linear-gradient(135deg,#08316F,#0d1a30)'
   const type     = TYPE_META[item.content_type] || { icon: '📄', label: item.content_type }
   const isVideo  = VIDEO_TYPES.has(item.content_type)
   const isImage  = IMAGE_TYPES.has(item.content_type)
   const isText   = TEXT_TYPES.has(item.content_type)
-  const [slides, setSlides] = useState(null)
+  const [slides, setSlides]         = useState(null)
   const [activeSlide, setActiveSlide] = useState(0)
+  const [previewTab, setPreviewTab] = useState('original')  // 'original' | platform key
+
+  const allPlatforms = item.platforms?.length ? item.platforms : []
+  // Tabs: original + each platform the item targets
+  const tabs = [
+    { id: 'original', label: 'Original', icon: '🎨' },
+    ...allPlatforms
+      .filter(p => PLATFORM_META[p])
+      .map(p => ({ id: p, label: PLATFORM_META[p].name, icon: PLATFORM_META[p].icon, color: PLATFORM_META[p].color })),
+  ]
 
   useEffect(() => {
     if (item.content_type === 'carousel' && item.output_file) {
@@ -355,61 +630,95 @@ function PreviewModal({ item, onClose, onStatusChange, onRegenerate, onDelete })
         display: 'flex', flexDirection: 'column', maxHeight: '92vh',
       }}>
 
-        {/* ── Video preview ── */}
-        {isVideo && (
-          item.output_file ? (
-            <video src={`/api/video/${item.job_id}`} controls style={{ width: '100%', maxHeight: 280, background: '#000', display: 'block', flexShrink: 0 }} />
-          ) : (
-            <div style={{ background: gradient, height: 180, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
-              <div style={{ fontSize: 44, marginBottom: 6 }}>{type.icon}</div>
-              <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>{item.format} · {item.template?.replace(/_/g,' ')}</div>
-              <div style={{ position: 'absolute', top: 10, right: 10 }}><StatusBadge status={item.status} /></div>
-            </div>
-          )
+        {/* ── Platform tab switcher ── */}
+        {tabs.length > 1 && (
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--cs-border)', background: 'var(--cs-surface2)', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {tabs.map(tab => {
+              const active = previewTab === tab.id
+              return (
+                <button key={tab.id} onClick={() => setPreviewTab(tab.id)} style={{
+                  padding: '9px 16px', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                  background: 'none', fontSize: 12, fontWeight: active ? 700 : 400,
+                  color: active ? (tab.color || '#00B6FF') : 'var(--cs-text-muted)',
+                  borderBottom: active ? `2px solid ${tab.color || '#00B6FF'}` : '2px solid transparent',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  transition: 'all 0.12s',
+                }}>
+                  <span style={{ fontSize: tab.id === 'original' ? 14 : 13 }}>{tab.icon}</span>
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
         )}
 
-        {/* ── Carousel preview ── */}
-        {item.content_type === 'carousel' && (
-          <div style={{ background: 'var(--cs-bg)', padding: '16px 28px', flexShrink: 0 }}>
-            {slides ? (
-              <CarouselSlidePreview
-                slides={slides}
-                template={item.template || 'carousel_bold'}
-                activeSlide={activeSlide}
-                onSlideChange={setActiveSlide}
-              />
-            ) : (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', height: 80, color: 'var(--cs-text-muted)', fontSize: 12 }}>
-                {item.output_file ? 'Loading slides…' : 'No preview yet — generate first'}
+        {/* ── Platform preview pane ── */}
+        {previewTab !== 'original' && (
+          <div style={{ flexShrink: 0, maxHeight: 440, overflowY: 'auto' }}>
+            <PlatformPreviewPane item={item} platform={previewTab} slides={slides} />
+          </div>
+        )}
+
+        {/* ── Original preview (existing) ── */}
+        {previewTab === 'original' && (
+          <>
+            {/* ── Video preview ── */}
+            {isVideo && (
+              item.output_file ? (
+                <video src={`/api/video/${item.job_id}`} controls style={{ width: '100%', maxHeight: 280, background: '#000', display: 'block', flexShrink: 0 }} />
+              ) : (
+                <div style={{ background: gradient, height: 180, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+                  <div style={{ fontSize: 44, marginBottom: 6 }}>{type.icon}</div>
+                  <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>{item.format} · {item.template?.replace(/_/g,' ')}</div>
+                  <div style={{ position: 'absolute', top: 10, right: 10 }}><StatusBadge status={item.status} /></div>
+                </div>
+              )
+            )}
+
+            {/* ── Carousel preview ── */}
+            {item.content_type === 'carousel' && (
+              <div style={{ background: 'var(--cs-bg)', padding: '16px 28px', flexShrink: 0 }}>
+                {slides ? (
+                  <CarouselSlidePreview
+                    slides={slides}
+                    template={item.template || 'carousel_bold'}
+                    activeSlide={activeSlide}
+                    onSlideChange={setActiveSlide}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', height: 80, color: 'var(--cs-text-muted)', fontSize: 12 }}>
+                    {item.output_file ? 'Loading slides…' : 'No preview yet — generate first'}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* ── Image post preview ── */}
-        {item.content_type === 'image_post' && (
-          item.output_file ? (
-            <div style={{ background: '#000', maxHeight: 340, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              <img src={`/api/image/${item.job_id}`} alt={item.title} style={{ maxWidth: '100%', maxHeight: 340, objectFit: 'contain', display: 'block' }} />
-              <div style={{ position: 'absolute', top: 10, right: 10 }}><StatusBadge status={item.status} /></div>
-            </div>
-          ) : (
-            <div style={{ background: gradient, height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 40 }}>📸</div>
-                <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 6 }}>{item.format} · {item.template?.replace(/_/g,' ')}</div>
+            {/* ── Image post preview ── */}
+            {item.content_type === 'image_post' && (
+              item.output_file ? (
+                <div style={{ background: '#000', maxHeight: 340, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  <img src={`/api/image/${item.job_id}`} alt={item.title} style={{ maxWidth: '100%', maxHeight: 340, objectFit: 'contain', display: 'block' }} />
+                  <div style={{ position: 'absolute', top: 10, right: 10 }}><StatusBadge status={item.status} /></div>
+                </div>
+              ) : (
+                <div style={{ background: gradient, height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 40 }}>📸</div>
+                    <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 6 }}>{item.format} · {item.template?.replace(/_/g,' ')}</div>
+                  </div>
+                  <div style={{ position: 'absolute', top: 10, right: 10 }}><StatusBadge status={item.status} /></div>
+                </div>
+              )
+            )}
+
+            {/* ── Text post preview — show the actual text content ── */}
+            {isText && (
+              <div style={{ background: 'linear-gradient(135deg,#0077B5,#005580)', padding: '20px 24px', flexShrink: 0 }}>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Text Post</div>
+                <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, lineHeight: 1.4, maxWidth: 400 }}>{item.title}</div>
               </div>
-              <div style={{ position: 'absolute', top: 10, right: 10 }}><StatusBadge status={item.status} /></div>
-            </div>
-          )
-        )}
-
-        {/* ── Text post preview — show the actual text content ── */}
-        {isText && (
-          <div style={{ background: 'linear-gradient(135deg,#0077B5,#005580)', padding: '20px 24px', flexShrink: 0 }}>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Text Post</div>
-            <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, lineHeight: 1.4, maxWidth: 400 }}>{item.title}</div>
-          </div>
+            )}
+          </>
         )}
 
         {/* Body */}

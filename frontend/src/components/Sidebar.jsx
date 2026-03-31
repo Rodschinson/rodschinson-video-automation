@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { PlusSquare, Library, CalendarDays, BarChart3 } from 'lucide-react'
+import { PlusSquare, Library, CalendarDays, BarChart3, ExternalLink } from 'lucide-react'
 
 const NAV = [
   { to: '/',          icon: PlusSquare,   label: 'New Content' },
@@ -7,6 +8,43 @@ const NAV = [
   { to: '/schedule',  icon: CalendarDays, label: 'Schedule'    },
   { to: '/analytics', icon: BarChart3,    label: 'Analytics'   },
 ]
+
+function MetricoolLink() {
+  const [hover, setHover] = useState(false)
+  return (
+    <a
+      href="https://app.metricool.com"
+      target="_blank"
+      rel="noopener noreferrer"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '10px 20px',
+        textDecoration: 'none',
+        color: hover ? '#00B6FF' : 'var(--cs-text-sub)',
+        fontWeight: 400,
+        fontSize: 14,
+        borderLeft: '2px solid transparent',
+        background: hover ? 'rgba(0,182,255,0.06)' : 'transparent',
+        transition: 'color 0.15s, background 0.15s',
+      }}
+    >
+      {/* Metricool "M" mark */}
+      <span style={{
+        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+        background: hover ? '#00B6FF' : 'var(--cs-text-muted)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: 1,
+        transition: 'background 0.15s',
+      }}>M</span>
+      Metricool
+      <ExternalLink size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+    </a>
+  )
+}
 
 export default function Sidebar() {
   return (
@@ -44,6 +82,11 @@ export default function Sidebar() {
           {label}
         </NavLink>
       ))}
+
+      {/* Divider */}
+      <div style={{ margin: '10px 20px', borderTop: '1px solid var(--cs-border)' }} />
+
+      <MetricoolLink />
     </aside>
   )
 }
