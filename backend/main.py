@@ -314,13 +314,47 @@ async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None
             canva_template = data.get("canva_template_url", "")
             canva_note = f"\nVisual reference: {canva_template}" if canva_template else ""
 
+            # Per-template style + schema hints so Claude generates content that fits the design
+            CAROUSEL_HINTS = {
+                "carousel_cre": {
+                    "style": "Dark navy #08316F + sky blue #00B6FF. Montserrat headlines, Lato body. Rodschinson Investment branding. Premium CRE / investment tone — authoritative, data-rich, institution-grade.",
+                    "tone":  "Professional investor content. Use real KPIs, sector yields, market data. Each slide should feel like a Bloomberg slide deck.",
+                    "schema": "rich",  # handled separately below
+                },
+                "carousel_bold": {
+                    "style": "Dark navy background, gold (#C8A96E) + sky blue (#00B6FF) accents, geometric SVG frame. Premium investment house feel. Headlines can span 2 lines separated by \\n.",
+                    "tone":  "Bold, authoritative, market-intelligence voice. Each content slide leads with a strong claim backed by one key stat.",
+                    "schema": "standard",
+                },
+                "carousel_clean": {
+                    "style": "Light (#F4F7FB) background, serif headlines (italic allowed with *text*), sky blue accents. Editorial magazine layout. Clean whitespace.",
+                    "tone":  "Thoughtful, analytical, editorial. Body text can be 3-4 sentences. Stat should be compelling with context.",
+                    "schema": "standard",
+                },
+                "carousel_minimal": {
+                    "style": "Near-black background, white text, minimal ornamentation. One idea per slide. Copy is compressed — no filler words.",
+                    "tone":  "Ultra-concise. Headline = punchy claim. Body = 1-2 tight sentences. CTA is direct.",
+                    "schema": "standard",
+                },
+                "carousel_data": {
+                    "style": "Deep dark (#031520) background, cyan (#00B6FF) accents, monospace data aesthetic. Terminal / Bloomberg visual style.",
+                    "tone":  "Data-first. Every slide should include a hard number. Stat field is mandatory. Body reads like a data analyst briefing.",
+                    "schema": "standard",
+                },
+            }
+            tmpl_hint = CAROUSEL_HINTS.get(template, CAROUSEL_HINTS["carousel_bold"])
+
             # CRE template uses richer slide types with dedicated components
             if template == "carousel_cre":
-                carousel_prompt = f"""Write a {num_slides}-slide LinkedIn carousel in {lang_name}.
+                carousel_prompt = f"""You are writing content for a LinkedIn carousel for {brand_display}.
 
 TOPIC: {subject}
-BRAND: {brand_display}
-STYLE: {style_hints.get(style, style_hints["educational"])}{canva_note}
+LANGUAGE: {lang_name}
+CONTENT STYLE: {style_hints.get(style, style_hints["educational"])}{canva_note}
+
+TEMPLATE: carousel_cre (Rodschinson Investment — dark navy #08316F + sky blue #00B6FF)
+VISUAL DESIGN: {tmpl_hint['style']}
+COPY TONE: {tmpl_hint['tone']}
 
 Return ONLY a JSON array with exactly {num_slides} objects using these EXACT types and schemas:
 
@@ -349,22 +383,28 @@ Rules:
 - For metric pct values: represent the metric as a percentage of some logical maximum (0-100).
 - No markdown, no explanation — return ONLY the JSON array."""
             else:
-                carousel_prompt = f"""Write a {num_slides}-slide LinkedIn carousel in {lang_name}.
+                carousel_prompt = f"""You are writing content for a LinkedIn carousel for {brand_display}.
 
 TOPIC: {subject}
-BRAND: {brand_display}
-STYLE: {style_hints.get(style, style_hints["educational"])}{canva_note}
+LANGUAGE: {lang_name}
+CONTENT STYLE: {style_hints.get(style, style_hints["educational"])}{canva_note}
 
-Return ONLY a JSON array with exactly {num_slides} objects. Schema:
+TEMPLATE: {template}
+VISUAL DESIGN: {tmpl_hint['style']}
+COPY TONE: {tmpl_hint['tone']}
+
+Write exactly {num_slides} slides. Return ONLY a JSON array. Schema:
 [
-  {{"index": 1, "type": "title", "headline": "...", "subheadline": "...", "cta": "Swipe →", "brand": "{brand_display}"}},
-  {{"index": 2, "type": "content", "headline": "Point title", "body": "2-3 sentence explanation", "stat": "optional — e.g. 3.8% — Cap Rate Dubai 2024"}},
+  {{"index": 1, "type": "title", "headline": "Cover headline (can use \\n for line break)", "subheadline": "One-line hook or subtitle", "cta": "Swipe →", "brand": "{brand_display}"}},
+  {{"index": 2, "type": "content", "headline": "Slide point title", "body": "2-3 sentences that develop the point", "stat": "KEY NUMBER — context description"}},
   ...
-  {{"index": {num_slides}, "type": "cta", "headline": "Call to action", "body": "Follow / DM / Link in bio", "hashtags": ["#Tag1","#Tag2","#Tag3"]}}
+  {{"index": {num_slides}, "type": "cta", "headline": "Action headline", "body": "One sentence CTA", "hashtags": ["#Tag1","#Tag2","#Tag3"]}}
 ]
-Slide 1 must be type "title". Last slide must be type "cta". Middle slides type "content".
-For "stat" fields use format "VALUE — description" (e.g. "42% — of investors cite…").
-No markdown, no explanation — just the JSON array."""
+Rules:
+- Slide 1 = type "title". Slide {num_slides} = type "cta". All middle slides = type "content".
+- stat field format: "VALUE — description" (e.g. "5.75% — prime office yield Brussels").
+- Write copy that visually fits the template style described above.
+- No markdown, no explanation — return ONLY the JSON array."""
 
             # Retry up to 4× on 529 overloaded with exponential backoff
             _res = None
