@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
 import { useToast } from '../contexts/ToastContext'
 import { Plus, Trash2, Code2, Info, Check } from 'lucide-react'
+import { apiFetch } from '../utils/apiFetch'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -339,7 +340,7 @@ function AddTemplateModal({ onClose, onSaved }) {
         fd.append('html_file', blob, 'template.html')
       }
 
-      const res = await fetch('/api/templates', { method: 'POST', body: fd })
+      const res = await apiFetch('/api/templates', { method: 'POST', body: fd })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.detail || `Error ${res.status}`)
@@ -542,7 +543,7 @@ export default function Templates() {
 
   const load = async () => {
     try {
-      const res = await fetch('/api/templates')
+      const res = await apiFetch('/api/templates')
       if (!res.ok) throw new Error()
       setTemplates(await res.json())
     } catch { /* keep empty */ } finally { setLoading(false) }
@@ -554,7 +555,7 @@ export default function Templates() {
     if (!window.confirm(`Remove template "${tmpl.label}"?`)) return
     setDeleting(tmpl.id)
     try {
-      await fetch(`/api/templates/${tmpl.id}`, { method: 'DELETE' })
+      await apiFetch(`/api/templates/${tmpl.id}`, { method: 'DELETE' })
       setTemplates(t => t.filter(x => x.id !== tmpl.id))
     } catch { error('Failed to delete template') } finally { setDeleting(null) }
   }
