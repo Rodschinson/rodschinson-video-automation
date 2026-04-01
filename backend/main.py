@@ -85,6 +85,81 @@ app = FastAPI(title="Rodschinson Content Studio API", lifespan=_lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS,
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+# ── Auth ───────────────────────────────────────────────────────────────────────
+import hmac as _hmac
+import time as _time
+
+_AUTH_ENABLED  = os.getenv("AUTH_ENABLED", "true").lower() not in ("false", "0", "no")
+_APP_USERNAME  = os.getenv("APP_USERNAME", "admin")
+_APP_PASSWORD  = os.getenv("APP_PASSWORD", "rodschinson2024")
+_APP_SECRET    = os.getenv("APP_SECRET", "cs-secret-change-in-prod")
+_TOKEN_TTL     = int(os.getenv("AUTH_TOKEN_TTL", str(60 * 60 * 24 * 7)))  # 7 days
+
+def _make_token(username: str) -> str:
+    exp = int(_time.time()) + _TOKEN_TTL
+    payload = base64.urlsafe_b64encode(f"{username}:{exp}".encode()).decode().rstrip("=")
+    sig = _hmac.new(_APP_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}.{sig}"
+
+def _verify_token(token: str) -> str | None:
+    """Return username if token is valid, else None."""
+    try:
+        payload, sig = token.rsplit(".", 1)
+        expected = _hmac.new(_APP_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        if not _hmac.compare_digest(sig, expected):
+            return None
+        decoded = base64.urlsafe_b64decode(payload + "==").decode()
+        username, exp_str = decoded.rsplit(":", 1)
+        if int(exp_str) < int(_time.time()):
+            return None
+        return username
+    except Exception:
+        return None
+
+def _get_request_token(request: Request) -> str | None:
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return auth[7:]
+    return request.cookies.get("cs_token")
+
+# Auth middleware — protects all /api/* routes except /api/auth/*
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse as _JSONResponse
+
+class _AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        # Skip auth for: non-api routes, auth endpoints, OPTIONS preflight
+        if (not path.startswith("/api/")
+                or path.startswith("/api/auth/")
+                or request.method == "OPTIONS"
+                or not _AUTH_ENABLED):
+            return await call_next(request)
+        token = _get_request_token(request)
+        if not token or not _verify_token(token):
+            return _JSONResponse({"detail": "Not authenticated"}, status_code=401)
+        return await call_next(request)
+
+app.add_middleware(_AuthMiddleware)
+
+# ── Settings store ─────────────────────────────────────────────────────────────
+SETTINGS_FILE = OUTPUT / "settings.json"
+
+def _settings_load() -> dict:
+    if SETTINGS_FILE.exists():
+        try:
+            return json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+def _settings_save(data: dict):
+    SETTINGS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+def _setting(key: str, default: str = "") -> str:
+    """Read a setting: settings.json override first, then env var, then default."""
+    return _settings_load().get(key) or os.getenv(key, default)
+
 # ── In-memory job cache ────────────────────────────────────────────────────────
 _jobs: dict[str, dict] = {}
 _job_tasks: dict[str, asyncio.Task]                         = {}  # asyncio task per job
@@ -3351,3 +3426,105 @@ async def canva_export_design(body: CanvaExportRequest):
             raise HTTPException(502, f"Canva export job failed: {job}")
 
     raise HTTPException(504, "Canva export timed out after 60s")
+
+
+# ── Auth endpoints ─────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/auth/login")
+async def auth_login(body: LoginRequest):
+    if body.username != _APP_USERNAME or body.password != _APP_PASSWORD:
+        raise HTTPException(401, "Invalid credentials")
+    token = _make_token(body.username)
+    return {"token": token, "username": body.username}
+
+@app.post("/api/auth/logout")
+async def auth_logout():
+    return {"status": "ok"}
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    token = _get_request_token(request)
+    username = _verify_token(token) if token else None
+    if not username:
+        raise HTTPException(401, "Not authenticated")
+    return {"username": username}
+
+
+# ── Settings endpoints ─────────────────────────────────────────────────────────
+
+_SETTINGS_SCHEMA = [
+    # (key, label, group, type, sensitive)
+    ("APP_USERNAME",                 "App username",          "security",     "text",     False),
+    ("APP_PASSWORD",                 "App password",          "security",     "password", True),
+    ("BACKEND_PUBLIC_URL",           "Backend public URL",    "publishing",   "text",     False),
+    ("METRICOOL_API_TOKEN",          "Metricool API token",   "metricool",    "password", True),
+    ("METRICOOL_USER_ID",            "Metricool user ID",     "metricool",    "text",     False),
+    ("METRICOOL_BLOG_ID_RODSCHINSON","Blog ID — Rodschinson", "metricool",    "text",     False),
+    ("METRICOOL_BLOG_ID_RACHID",     "Blog ID — Rachid",      "metricool",    "text",     False),
+    ("ELEVENLABS_API_KEY",           "ElevenLabs API key",    "elevenlabs",   "password", True),
+    ("ELEVENLABS_VOICE_ID_RACHID",   "Voice ID — Rachid",     "elevenlabs",   "text",     False),
+    ("ELEVENLABS_VOICE_ID_STANDARD", "Voice ID — Standard",   "elevenlabs",   "text",     False),
+    ("ANTHROPIC_API_KEY",            "Anthropic API key",     "ai",           "password", True),
+    ("FRONTEND_URL",                 "Frontend URL (CORS)",   "general",      "text",     False),
+]
+
+def _mask(value: str) -> str:
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "•" * len(value)
+    return value[:4] + "•" * (len(value) - 8) + value[-4:]
+
+@app.get("/api/settings")
+async def get_settings():
+    overrides = _settings_load()
+    result: dict[str, dict] = {}
+    for key, label, group, ftype, sensitive in _SETTINGS_SCHEMA:
+        env_val  = os.getenv(key, "")
+        ovr_val  = overrides.get(key, "")
+        actual   = ovr_val or env_val
+        result[key] = {
+            "label":     label,
+            "group":     group,
+            "type":      ftype,
+            "sensitive": sensitive,
+            "value":     _mask(actual) if sensitive else actual,
+            "source":    "override" if ovr_val else ("env" if env_val else "unset"),
+            "hasValue":  bool(actual),
+        }
+    return result
+
+class SettingsUpdateRequest(BaseModel):
+    updates: dict[str, str]
+
+@app.put("/api/settings")
+async def update_settings(body: SettingsUpdateRequest, request: Request):
+    allowed_keys = {s[0] for s in _SETTINGS_SCHEMA}
+    overrides = _settings_load()
+
+    for key, value in body.updates.items():
+        if key not in allowed_keys:
+            continue
+        # If the value looks like a masked string, skip it (user didn't change it)
+        if value and all(c == "•" for c in value.replace(value[:4], "").replace(value[-4:], "")):
+            continue
+        if value == "":
+            overrides.pop(key, None)  # clear override → fall back to env
+        else:
+            overrides[key] = value
+            # Also update process env so changes take effect without restart
+            os.environ[key] = value
+
+    _settings_save(overrides)
+
+    # Re-apply special vars that are cached at startup
+    global _APP_USERNAME, _APP_PASSWORD, _APP_SECRET
+    _APP_USERNAME = overrides.get("APP_USERNAME") or os.getenv("APP_USERNAME", "admin")
+    _APP_PASSWORD = overrides.get("APP_PASSWORD") or os.getenv("APP_PASSWORD", "rodschinson2024")
+    _APP_SECRET   = overrides.get("APP_SECRET")   or os.getenv("APP_SECRET", "cs-secret-change-in-prod")
+
+    return {"status": "saved", "keys": list(body.updates.keys())}

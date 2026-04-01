@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { apiFetch } from '../utils/apiFetch'
 
 const BrandContext = createContext()
 
@@ -13,7 +14,7 @@ export function BrandProvider({ children }) {
 
   const reload = useCallback(async () => {
     try {
-      const res = await fetch('/api/brands')
+      const res = await apiFetch('/api/brands')
       if (!res.ok) throw new Error()
       const data = await res.json()
       if (Array.isArray(data) && data.length > 0) setBrands(data)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
+import { apiFetch } from '../utils/apiFetch'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ function PostDetailModal({ entry, onClose, onRemove, onPublished }) {
     }
     setPublishing(true); setPubError('')
     try {
-      const res = await fetch(`/api/schedule/${entry.id}/publish`, {
+      const res = await apiFetch(`/api/schedule/${entry.id}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry),
@@ -421,7 +422,7 @@ export default function Schedule() {
   const loadWeek = useCallback(async (ws) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/schedule/week?start=${isoDate(ws)}`)
+      const res = await apiFetch(`/api/schedule/week?start=${isoDate(ws)}`)
       if (!res.ok) throw new Error()
       const data = await res.json()
       setEntries(data.entries || []); setApiError(false)
@@ -432,7 +433,7 @@ export default function Schedule() {
 
   const loadLibrary = useCallback(async () => {
     try {
-      const res  = await fetch('/api/library')
+      const res  = await apiFetch('/api/library')
       if (!res.ok) throw new Error()
       const data = await res.json()
       setLibrary(data.items || [])
@@ -460,7 +461,7 @@ export default function Schedule() {
     }
     setEntries(prev => [...prev, newEntry])
     try {
-      await fetch('/api/schedule', {
+      await apiFetch('/api/schedule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ job_id: item.job_id, date, slot, platform, scheduled_time: time }),
       })
@@ -469,7 +470,7 @@ export default function Schedule() {
 
   async function handleRemove(entry) {
     setEntries(prev => prev.filter(e => e.id !== entry.id))
-    try { await fetch(`/api/schedule/${entry.id}`, { method: 'DELETE' }) } catch { }
+    try { await apiFetch(`/api/schedule/${entry.id}`, { method: 'DELETE' }) } catch { }
   }
 
   function handlePublished(entryId, newStatus) {

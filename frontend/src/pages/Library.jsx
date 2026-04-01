@@ -4,6 +4,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useGeneration } from '../contexts/GenerationContext'
 import { useToast } from '../contexts/ToastContext'
 import { CarouselSlidePreview } from '../components/CarouselPreview'
+import { apiFetch } from '../utils/apiFetch'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -240,7 +241,7 @@ function ScheduleInline({ item, onScheduled, onClose }) {
   const submit = async () => {
     setSaving(true); setErr(null)
     try {
-      const res = await fetch('/api/schedule', {
+      const res = await apiFetch('/api/schedule', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ job_id: item.job_id, date, slot, platform }),
       })
@@ -314,7 +315,7 @@ function PublishModal({ item, onClose, onPublished }) {
     if (!selected.length) return
     setPublishing(true)
     try {
-      const res = await fetch(`/api/publish/${item.job_id}`, {
+      const res = await apiFetch(`/api/publish/${item.job_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platforms: selected, publish_now: true }),
@@ -1062,7 +1063,7 @@ function PreviewModal({ item, onClose, onStatusChange, onRegenerate, onDelete })
 
   useEffect(() => {
     if (item.content_type === 'carousel' && item.output_file) {
-      fetch(`/api/carousel-slides/${item.job_id}`)
+      apiFetch(`/api/carousel-slides/${item.job_id}`)
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.slides) { setSlides(d.slides); setActiveSlide(0) } })
         .catch(() => {})
@@ -1229,7 +1230,7 @@ function CardThumbnail({ item, gradient, height = 130 }) {
   // Lazy-load carousel first slide
   useEffect(() => {
     if (item.content_type === 'carousel' && item.output_file) {
-      fetch(`/api/carousel-slides/${item.job_id}`)
+      apiFetch(`/api/carousel-slides/${item.job_id}`)
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.slides?.[0]?.png_url) setThumbUrl(d.slides[0].png_url) })
         .catch(() => {})
@@ -1478,7 +1479,7 @@ export default function Library() {
 
   const load = useCallback(async () => {
     try {
-      const res  = await fetch('/api/library')
+      const res  = await apiFetch('/api/library')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setItems(data.items || [])
@@ -1494,7 +1495,7 @@ export default function Library() {
   const handleStatusChange = useCallback(async (jobId, newStatus) => {
     setItems(prev => prev.map(i => i.job_id === jobId ? { ...i, status: newStatus } : i))
     try {
-      await fetch(`/api/library/${jobId}/status`, {
+      await apiFetch(`/api/library/${jobId}/status`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       })
@@ -1507,7 +1508,7 @@ export default function Library() {
     setItems(prev => prev.filter(i => i.job_id !== jobId))
     setSelected(prev => { const s = new Set(prev); s.delete(jobId); return s })
     try {
-      await fetch(`/api/library/${jobId}`, { method: 'DELETE' })
+      await apiFetch(`/api/library/${jobId}`, { method: 'DELETE' })
       success('Content deleted.')
     } catch { load() }
   }, [load, success])
@@ -1518,7 +1519,7 @@ export default function Library() {
     if (!window.confirm(`Delete ${ids.length} items? This cannot be undone.`)) return
     setItems(prev => prev.filter(i => !selected.has(i.job_id)))
     setSelected(new Set())
-    await Promise.allSettled(ids.map(id => fetch(`/api/library/${id}`, { method: 'DELETE' })))
+    await Promise.allSettled(ids.map(id => apiFetch(`/api/library/${id}`, { method: 'DELETE' })))
     success(`Deleted ${ids.length} items.`)
   }, [selected, success])
 
@@ -1526,7 +1527,7 @@ export default function Library() {
     const ids = [...selected]
     setItems(prev => prev.map(i => selected.has(i.job_id) ? { ...i, status: newStatus } : i))
     setSelected(new Set())
-    await Promise.allSettled(ids.map(id => fetch(`/api/library/${id}/status`, {
+    await Promise.allSettled(ids.map(id => apiFetch(`/api/library/${id}/status`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
     })))
