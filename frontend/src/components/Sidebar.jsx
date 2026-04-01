@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { PlusSquare, Library, CalendarDays, BarChart3, ExternalLink, Sun, Moon, Building2, Layers } from 'lucide-react'
+import { PlusSquare, Library, CalendarDays, BarChart3, ExternalLink, Sun, Moon, Building2, Layers, Settings, LogOut, User } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
+import { useAuth } from '../contexts/AuthContext'
 import { useMobile } from '../hooks/useMobile'
 
 const NAV = [
@@ -52,6 +53,7 @@ function MetricoolLink() {
 
 function SidebarContent({ onClose }) {
   const { isDark, toggle } = useTheme()
+  const { username, logout } = useAuth()
   const isMobile = useMobile()
 
   return (
@@ -141,21 +143,66 @@ function SidebarContent({ onClose }) {
       <MetricoolLink />
       </div>
 
-      {/* Theme toggle at bottom */}
-      <button
-        onClick={toggle}
-        title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        style={{
+      {/* Bottom: Settings + user + theme */}
+      <div style={{ borderTop: '1px solid var(--cs-border)', padding: '8px 0 4px' }}>
+        {/* Settings link */}
+        <NavLink
+          to="/settings"
+          onClick={isMobile ? onClose : undefined}
+          style={({ isActive }) => ({
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '9px 20px', textDecoration: 'none',
+            color: isActive ? '#00B6FF' : 'var(--cs-text-sub)',
+            fontWeight: isActive ? 600 : 400, fontSize: 13,
+            borderLeft: isActive ? '2px solid #00B6FF' : '2px solid transparent',
+            background: isActive ? 'rgba(0,182,255,0.06)' : 'transparent',
+            transition: 'color 0.15s, background 0.15s',
+          })}
+        >
+          <Settings size={16} />
+          Settings
+        </NavLink>
+
+        {/* User row */}
+        <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 20px', border: 'none', cursor: 'pointer',
-          background: 'transparent', width: '100%', textAlign: 'left',
-          color: 'var(--cs-text-muted)', fontSize: 13,
-          transition: 'color 0.15s',
-        }}
-      >
-        {isDark ? <Sun size={15} /> : <Moon size={15} />}
-        {isDark ? 'Light mode' : 'Dark mode'}
-      </button>
+          padding: '8px 20px', color: 'var(--cs-text-muted)', fontSize: 12,
+        }}>
+          <User size={14} />
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {username || 'admin'}
+          </span>
+          <button
+            onClick={logout}
+            title="Sign out"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--cs-text-muted)', padding: 2, display: 'flex',
+              borderRadius: 4, transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--cs-text-muted)'}
+          >
+            <LogOut size={13} />
+          </button>
+        </div>
+
+        {/* Theme toggle */}
+        <button
+          onClick={toggle}
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 20px', border: 'none', cursor: 'pointer',
+            background: 'transparent', width: '100%', textAlign: 'left',
+            color: 'var(--cs-text-muted)', fontSize: 12,
+            transition: 'color 0.15s',
+          }}
+        >
+          {isDark ? <Sun size={14} /> : <Moon size={14} />}
+          {isDark ? 'Light mode' : 'Dark mode'}
+        </button>
+      </div>
     </aside>
   )
 }

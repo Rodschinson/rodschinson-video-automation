@@ -5,6 +5,7 @@ import { useGeneration } from '../contexts/GenerationContext'
 import { useToast } from '../contexts/ToastContext'
 import { useBrands } from '../contexts/BrandContext'
 import { CarouselSlidePreview } from '../components/CarouselPreview'
+import { apiFetch } from '../utils/apiFetch'
 
 // ─── Content-type definitions ─────────────────────────────────────────────────
 // Each type declares: which steps it goes through, which formats apply,
@@ -562,7 +563,7 @@ function AddCanvaTemplateModal({ contentType, onAdded, onClose }) {
     if (!url.includes('canva.com')) { setErr('Must be a canva.com share link.'); return }
     setSaving(true); setErr(null)
     try {
-      const res = await fetch('/api/canva-templates', {
+      const res = await apiFetch('/api/canva-templates', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), url: url.trim(), type: canvaType, thumbnail_url: thumb.trim() }),
       })
@@ -702,7 +703,7 @@ function GenerationPanel({ job, typeDef, onDone, onReset }) {
     if (!job?.job_id || aborting) return
     setAborting(true)
     try {
-      await fetch(`/api/jobs/${job.job_id}/abort`, { method: 'POST' })
+      await apiFetch(`/api/jobs/${job.job_id}/abort`, { method: 'POST' })
     } catch { /* ignore */ } finally {
       setAborting(false)
     }
@@ -821,7 +822,7 @@ function GenerateTemplateModal({ contentType, onGenerated, onClose }) {
     if (!name.trim() || !desc.trim()) { setError('Name and description are required.'); return }
     setLoading(true); setError(null)
     try {
-      const res = await fetch('/api/generate-template', {
+      const res = await apiFetch('/api/generate-template', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), description: desc.trim(), type: templateType, bg_color: bgColor, accent_color: accent }),
       })
@@ -968,7 +969,7 @@ export default function NewContent() {
   const [canvaTemplates, setCanvaTemplates]   = useState([])
 
   useEffect(() => {
-    fetch('/api/templates')
+    apiFetch('/api/templates')
       .then(r => r.json())
       .then(d => {
         // API returns a list directly; filter to custom-only
@@ -979,7 +980,7 @@ export default function NewContent() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/canva-templates')
+    apiFetch('/api/canva-templates')
       .then(r => r.json())
       .then(d => setCanvaTemplates(d.templates || []))
       .catch(() => {})
@@ -1056,7 +1057,7 @@ export default function NewContent() {
     if (!form.subject.trim()) { setError('Enter a brief first.'); return }
     setVariationsLoading(true); setError(null); setVariations([]); setSelectedVariation(null)
     try {
-      const res = await fetch('/api/generate-variations', {
+      const res = await apiFetch('/api/generate-variations', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subject: form.subject, brand: form.brand, language: form.language,
@@ -1082,7 +1083,7 @@ export default function NewContent() {
     if (!form.subject.trim()) return
     setCarouselSlidesLoading(true); setError(null); setCarouselSlides([])
     try {
-      const res = await fetch('/api/preview-carousel', {
+      const res = await apiFetch('/api/preview-carousel', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           subject: form.subject, brand: form.brand, language: form.language,
@@ -1103,7 +1104,7 @@ export default function NewContent() {
     if (!form.subject.trim()) { setError('Enter a brief first.'); return }
     setPreviewLoading(true); setError(null)
     try {
-      const res = await fetch('/api/preview-script', {
+      const res = await apiFetch('/api/preview-script', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1147,7 +1148,7 @@ export default function NewContent() {
     if (form.logo) body.append('logo', form.logo)
 
     try {
-      const res = await fetch('/api/generate', { method: 'POST', body })
+      const res = await apiFetch('/api/generate', { method: 'POST', body })
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
 
@@ -1549,7 +1550,7 @@ export default function NewContent() {
                           active={form.canvaTemplateUrl === t.url}
                           onClick={() => { set('canvaTemplateUrl', t.url); set('template', t.id) }}
                           onDelete={async (id) => {
-                            await fetch(`/api/canva-templates/${id}`, { method: 'DELETE' })
+                            await apiFetch(`/api/canva-templates/${id}`, { method: 'DELETE' })
                             setCanvaTemplates(prev => prev.filter(c => c.id !== id))
                             if (form.canvaTemplateUrl) set('canvaTemplateUrl', '')
                           }}
