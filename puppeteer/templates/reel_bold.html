@@ -1,210 +1,369 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1080, height=1920">
+<title>Reel — Bold</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{width:1080px;height:1920px;overflow:hidden;
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
-  background:#0a0a0a;color:#fff;}
-#scene-container{width:1080px;height:1920px;position:relative;}
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+:root { --dark-blue:#0a0a0a; --sky-blue:#FF4444; }
 
-.scene{
-  width:1080px;height:1920px;position:relative;
-  display:flex;flex-direction:column;overflow:hidden;
+html, body {
+  width:1080px; height:1920px; overflow:hidden;
+  font-family:'Inter', sans-serif;
+  background:#0a0a0a; color:#fff;
+}
+#scene-container { width:1080px; height:1920px; position:relative; }
+
+/* ── SCENE BASE ── */
+.scene {
+  width:1080px; height:1920px; position:absolute; inset:0;
+  display:flex; flex-direction:column; overflow:hidden;
   background:#0a0a0a;
 }
-/* diagonal slash accent */
-.scene::before{
-  content:'';position:absolute;
-  top:-200px;right:-100px;
-  width:600px;height:2400px;
-  background:linear-gradient(135deg,rgba(255,68,68,0.18) 0%,rgba(255,107,53,0.08) 50%,transparent 100%);
-  transform:rotate(-15deg);pointer-events:none;
+
+/* Diagonal accent slash — bottom-right */
+.scene::before {
+  content:''; position:absolute;
+  right:-80px; bottom:180px;
+  width:320px; height:1200px;
+  background: color-mix(in srgb, var(--sky-blue) 8%, transparent);
+  transform:rotate(-18deg);
+  pointer-events:none; z-index:0;
 }
 
-.top-bar{position:absolute;top:0;left:0;right:0;height:6px;
-  background:linear-gradient(90deg,#FF4444 0%,#FF6B35 100%);z-index:10;}
-.header{position:absolute;top:6px;left:0;right:0;height:88px;
-  display:flex;align-items:center;justify-content:space-between;padding:0 60px;z-index:10;}
-.hdr-brand{font-size:20px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.8);}
-.hdr-badge{
-  font-size:15px;font-weight:900;letter-spacing:0.18em;text-transform:uppercase;
-  color:#fff;background:#FF4444;padding:10px 22px;border-radius:4px;}
-
-.footer{position:absolute;bottom:0;left:0;right:0;height:88px;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 60px;border-top:1px solid rgba(255,68,68,0.2);
-  background:rgba(10,10,10,0.95);z-index:10;}
-.ftr-l{font-size:19px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.5);}
-.ftr-r{font-size:19px;color:#FF6B35;font-weight:600;}
-
-/* ══ TITLE CARD ══ */
-.scene-title{justify-content:center;align-items:flex-start;}
-.tc-wrap{padding:100px 70px 100px;display:flex;flex-direction:column;gap:0;}
-.tc-label{
-  display:inline-block;font-size:20px;font-weight:900;letter-spacing:0.22em;text-transform:uppercase;
-  color:#0a0a0a;background:#FF4444;padding:10px 24px;border-radius:4px;margin-bottom:60px;align-self:flex-start;
+/* ── BRAND CHROME ── */
+.brand-strip {
+  position:absolute; top:0; left:0; right:0; height:6px;
+  background: linear-gradient(90deg, var(--sky-blue), color-mix(in srgb, var(--sky-blue) 40%, transparent));
+  z-index:10;
 }
-.tc-headline{font-size:116px;font-weight:900;line-height:0.95;color:#fff;margin-bottom:50px;letter-spacing:-0.02em;}
-.tc-accent{width:100%;height:5px;background:linear-gradient(90deg,#FF4444,#FF6B35,transparent);margin-bottom:50px;}
-.tc-sub{font-size:44px;font-weight:400;line-height:1.35;color:rgba(255,255,255,0.7);}
-
-/* ══ BIG NUMBER ══ */
-.scene-number{justify-content:center;align-items:center;}
-.bn-top{
-  align-self:stretch;padding:0 70px;margin-bottom:50px;
-  font-size:26px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;
-  color:rgba(255,255,255,0.55);text-align:left;
+.brand-bar {
+  position:absolute; top:6px; left:0; right:0; height:80px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 60px; z-index:10;
+  background: rgba(0,0,0,0.6);
 }
-.bn-center{display:flex;flex-direction:column;align-items:center;padding:0 60px;width:100%;}
-.bn-num{font-size:280px;font-weight:900;line-height:0.85;color:#FF4444;letter-spacing:-0.04em;text-align:center;}
-.bn-unit{font-size:66px;font-weight:800;color:#fff;margin-top:16px;letter-spacing:0.04em;}
-.bn-line{width:80px;height:5px;background:#FF4444;margin:55px auto;}
-.bn-ctx{font-size:36px;font-weight:400;color:rgba(255,255,255,0.65);text-align:center;line-height:1.4;padding:0 80px;max-height:220px;}
-
-/* ══ BULLETS ══ */
-.scene-bullets{justify-content:flex-start;}
-.tb-wrap{margin-top:100px;padding:0 70px;flex:1;display:flex;flex-direction:column;}
-.tb-title{font-size:72px;font-weight:900;line-height:1.0;color:#fff;margin-bottom:30px;}
-.tb-accent{width:80px;height:5px;background:#FF4444;margin-bottom:55px;}
-.tb-item{
-  display:flex;align-items:flex-start;gap:26px;margin-bottom:48px;
-  opacity:0;transform:translateY(20px);transition:opacity 0.35s,transform 0.35s;
+.brand-name {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:28px; letter-spacing:0.22em;
+  text-transform:uppercase; color:rgba(255,255,255,0.85);
 }
-.tb-item.visible{opacity:1;transform:none;}
-.tb-bar{width:6px;border-radius:3px;background:#FF4444;align-self:stretch;flex-shrink:0;min-height:50px;}
-.tb-text{font-size:40px;font-weight:600;line-height:1.35;color:rgba(255,255,255,0.9);}
-
-/* ══ BAR CHART ══ */
-.scene-chart{justify-content:flex-start;}
-.bc-wrap{margin-top:100px;padding:0 70px;flex:1;display:flex;flex-direction:column;}
-.bc-title{font-size:60px;font-weight:900;line-height:1.05;color:#fff;margin-bottom:25px;}
-.bc-accent{width:80px;height:5px;background:#FF4444;margin-bottom:50px;}
-.bc-bars{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;}
-.bc-row{display:flex;flex-direction:column;gap:10px;}
-.bc-meta{display:flex;justify-content:space-between;}
-.bc-lbl{font-size:30px;font-weight:600;color:rgba(255,255,255,0.8);}
-.bc-vl{font-size:34px;font-weight:900;color:#FF4444;}
-.bc-track{height:22px;background:rgba(255,255,255,0.08);border-radius:11px;overflow:hidden;}
-.bc-fill{height:100%;border-radius:11px;background:linear-gradient(90deg,#FF4444,#FF6B35);width:0%;transition:width 0.9s cubic-bezier(.4,0,.2,1);}
-.bc-fill.anim{width:var(--w);}
-.bc-src{font-size:22px;color:rgba(255,255,255,0.3);margin-top:16px;text-align:right;}
-
-/* ══ CTA ══ */
-.scene-cta{justify-content:center;align-items:flex-start;}
-.cta-wrap{padding:80px 70px;display:flex;flex-direction:column;gap:50px;}
-.cta-tag{font-size:22px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;color:#FF4444;}
-.cta-headline{font-size:92px;font-weight:900;line-height:1.0;color:#fff;}
-.cta-accent{width:100%;height:5px;background:linear-gradient(90deg,#FF4444,#FF6B35,transparent);}
-.cta-btn{
-  align-self:flex-start;padding:36px 80px;background:#FF4444;color:#fff;
-  font-size:32px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;border-radius:6px;
+.brand-badge {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:18px; letter-spacing:0.18em;
+  color:var(--sky-blue);
 }
-.cta-url{font-size:28px;color:rgba(255,255,255,0.45);letter-spacing:0.06em;}
+.scene-footer {
+  position:absolute; bottom:0; left:0; right:0; height:64px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 60px; z-index:10;
+  background: rgba(0,0,0,0.7);
+}
+.ftr-l {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:20px; letter-spacing:0.18em; color:rgba(255,255,255,0.3);
+}
+.ftr-r { font-size:12px; color:rgba(255,255,255,0.2); letter-spacing:0.05em; }
+
+/* ── INNER CONTENT AREA ── */
+.scn-inner {
+  position:absolute; top:86px; bottom:64px; left:0; right:0;
+  display:flex; flex-direction:column; padding:60px 60px 40px;
+  z-index:1;
+}
+
+/* ── TITLE CARD ── */
+.tc-tag {
+  display:inline-block; background:var(--sky-blue); color:#0a0a0a;
+  font-family:'Bebas Neue', sans-serif;
+  font-size:22px; letter-spacing:0.2em; padding:8px 20px;
+  margin-bottom:52px; align-self:flex-start;
+}
+.tc-headline {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:148px; font-weight:400; line-height:0.88;
+  color:#fff; letter-spacing:0.01em;
+  flex:1; display:flex; flex-direction:column; justify-content:center;
+}
+.tc-headline .hl { color:var(--sky-blue); display:block; }
+.tc-accent-bar {
+  width:100%; height:5px;
+  background: linear-gradient(90deg, var(--sky-blue), transparent);
+  margin-bottom:40px;
+}
+.tc-sub {
+  font-size:28px; font-weight:300; line-height:1.5;
+  color:rgba(255,255,255,0.5); max-width:720px;
+}
+
+/* ── BIG NUMBER ── */
+.bn-label {
+  font-size:16px; font-weight:600; letter-spacing:0.26em;
+  text-transform:uppercase; color:rgba(255,255,255,0.4); margin-bottom:40px;
+}
+.bn-main {
+  display:flex; align-items:flex-end; position:relative;
+  margin-bottom:48px; overflow:hidden;
+}
+.bn-value {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:380px; font-weight:400; line-height:0.82;
+  color:#fff; letter-spacing:-0.02em;
+  margin-right:-20px;
+}
+.bn-unit {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:88px; color:var(--sky-blue);
+  margin-bottom:28px; letter-spacing:0.05em;
+}
+.bn-accent {
+  position:absolute; bottom:0; left:0; right:-60px;
+  height:6px; background:linear-gradient(90deg, var(--sky-blue), transparent);
+}
+.bn-context {
+  font-size:26px; font-weight:400; color:rgba(255,255,255,0.55);
+  line-height:1.55; max-width:700px;
+}
+
+/* ── TEXT BULLETS ── */
+.tb-title {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:96px; font-weight:400; line-height:0.9;
+  color:#fff; margin-bottom:48px; letter-spacing:0.01em;
+}
+.tb-accent { width:60px; height:5px; background:var(--sky-blue); margin-bottom:40px; }
+.tb-list { flex:1; display:flex; flex-direction:column; justify-content:space-evenly; }
+.tb-item {
+  display:flex; align-items:flex-start; gap:32px;
+  padding:24px 0;
+  border-bottom:1px solid rgba(255,255,255,0.07);
+  opacity:0; transform:translateX(-24px);
+  transition:opacity 0.4s, transform 0.4s;
+}
+.tb-item.visible { opacity:1; transform:none; }
+.tb-num {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:52px; line-height:1; color:var(--sky-blue);
+  min-width:64px; letter-spacing:0.05em;
+}
+.tb-text {
+  font-size:30px; font-weight:500; color:rgba(255,255,255,0.88);
+  line-height:1.4; flex:1; padding-top:8px;
+}
+
+/* ── BAR CHART — vertical bars ── */
+.bc-title {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:88px; font-weight:400; line-height:0.9;
+  color:#fff; margin-bottom:48px;
+}
+.bc-accent { width:60px; height:5px; background:var(--sky-blue); margin-bottom:40px; }
+.bc-chart {
+  flex:1; display:flex; align-items:flex-end; gap:16px;
+}
+.bc-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:12px; }
+.bc-bar-wrap {
+  flex:1; width:100%; display:flex; align-items:flex-end;
+  background:rgba(255,255,255,0.07); border-radius:4px 4px 0 0; overflow:hidden;
+}
+.bc-bar {
+  width:100%; background:var(--sky-blue);
+  border-radius:4px 4px 0 0;
+  height:0%; transition:height 1.1s cubic-bezier(0.4,0,0.2,1);
+}
+.bc-bar.anim { height:var(--h); }
+.bc-col-val {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:34px; color:var(--sky-blue); letter-spacing:0.04em;
+}
+.bc-col-lbl {
+  font-size:16px; font-weight:500; color:rgba(255,255,255,0.5);
+  text-align:center; line-height:1.3;
+}
+.bc-source {
+  font-size:16px; color:rgba(255,255,255,0.2);
+  margin-top:24px; text-align:right;
+}
+
+/* ── CTA — accent background ── */
+.scene.scene-cta { background: var(--sky-blue); }
+.scene.scene-cta::before { display:none; }
+.cta-inner {
+  flex:1; display:flex; flex-direction:column;
+  justify-content:center; padding:80px 60px;
+}
+.cta-brand {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:24px; letter-spacing:0.24em;
+  color:rgba(0,0,0,0.5); margin-bottom:64px;
+}
+.cta-headline {
+  font-family:'Bebas Neue', sans-serif;
+  font-size:132px; font-weight:400; line-height:0.88;
+  color:#0a0a0a; letter-spacing:0.01em; margin-bottom:52px;
+}
+.cta-rule { width:60px; height:5px; background:rgba(0,0,0,0.35); margin-bottom:44px; }
+.cta-sub {
+  font-size:28px; font-weight:400; line-height:1.5;
+  color:rgba(0,0,0,0.6); margin-bottom:72px; max-width:680px;
+}
+.cta-btn {
+  display:inline-flex; align-items:center;
+  padding:24px 56px; background:#0a0a0a; color:#fff;
+  font-size:18px; font-weight:800; letter-spacing:0.14em;
+  text-transform:uppercase; align-self:flex-start;
+}
+.scene.scene-cta .brand-bar,
+.scene.scene-cta .scene-footer { background:color-mix(in srgb, var(--sky-blue) 80%, black); }
+.scene.scene-cta .brand-name,
+.scene.scene-cta .brand-badge { color:rgba(0,0,0,0.6); }
+.scene.scene-cta .ftr-l,
+.scene.scene-cta .ftr-r { color:rgba(0,0,0,0.4); }
 </style>
 </head>
 <body>
 <div id="scene-container"></div>
 <script>
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function fmt(s){return esc(s).replace(/\*([^*]+)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');}
-function fitText(el,minPx){
-  if(!el||!el.parentElement)return;
-  let size=parseFloat(getComputedStyle(el).fontSize),iter=0;
-  while(iter++<80&&el.scrollHeight>el.parentElement.clientHeight+8&&size>minPx){size-=2;el.style.fontSize=size+'px';}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmt(s){ return esc(s).replace(/\*([^*]+)\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>'); }
+function fitText(el, minPx){
+  if(!el||!el.parentElement) return;
+  let sz=parseFloat(getComputedStyle(el).fontSize), i=0;
+  while(i++<80 && el.scrollHeight>el.parentElement.clientHeight+8 && sz>minPx){ sz-=2; el.style.fontSize=sz+'px'; }
 }
 
 function _B(){ return (window.__brand&&window.__brand.name)||''; }
 function _U(){ return ''; }
-function _HDR(){ const b=_B(); return `<div class="top-bar"></div><div class="header"><span class="hdr-brand">${b}</span><span class="hdr-badge">REEL</span></div>`; }
-function _FTR(){ const b=_B(); return `<div class="footer"><span class="ftr-l">${b}</span><span class="ftr-r">${_U()}</span></div>`; }
+function chrome(){
+  return `<div class="brand-strip"></div>
+<div class="brand-bar"><span class="brand-name">${_B()}</span><span class="brand-badge">REEL</span></div>
+<div class="scene-footer"><span class="ftr-l">${_B()}</span><span class="ftr-r">${_U()}</span></div>`;
+}
 
-window.loadScene=function(data){
-  const c=document.getElementById('scene-container');
-  const v=data.visuel||{};const tv=data.type_visuel||'title_card';let html='';
+window.loadScene = function(data){
+  const c = document.getElementById('scene-container');
+  const v = data.visuel || {};
+  const tv = data.type_visuel || 'title_card';
+  let html = '';
 
-  if(tv==='title_card'){
-    html=`<div class="scene scene-title">${_HDR()}${_FTR()}
-      <div class="tc-wrap">
-        ${v.eyebrow?`<div class="tc-label">${esc(v.eyebrow)}</div>`:''}
-        <div class="tc-headline" id="_hl">${fmt(v.titre_principal||v.titre||'')}</div>
-        <div class="tc-accent"></div>
+  if(tv === 'title_card'){
+    const parts = (v.titre_principal||v.titre||'').split(/\n/, 2);
+    html = `<div class="scene">
+      ${chrome()}
+      <div class="scn-inner">
+        ${v.eyebrow ? `<div class="tc-tag">${esc(v.eyebrow)}</div>` : ''}
+        <div class="tc-headline" id="_hl">
+          ${parts[0]}${parts[1] ? `<span class="hl">${parts[1]}</span>` : ''}
+        </div>
+        <div class="tc-accent-bar"></div>
         <div class="tc-sub" id="_sub">${fmt(v.sous_titre||v.subtitle||'')}</div>
-      </div></div>`;
-
-  }else if(tv==='big_number'){
-    html=`<div class="scene scene-number">${_HDR()}${_FTR()}
-      <div class="bn-top" id="_ey">${fmt(v.eyebrow||v.label||v.titre||'')}</div>
-      <div class="bn-center">
-        <div class="bn-num">${esc(v.valeur||'0')}</div>
-        <div class="bn-unit">${esc(v.unite||'%')}</div>
-        <div class="bn-line"></div>
       </div>
-      <div class="bn-ctx" id="_ctx">${fmt(v.contexte||v.subtitle||'')}</div></div>`;
+    </div>`;
 
-  }else if(tv==='text_bullets'){
-    const items=v.items||v.elements||v.points||[];
-    const rows=items.map((it,i)=>`<div class="tb-item" data-i="${i}"><div class="tb-bar"></div><div class="tb-text">${fmt(String(it))}</div></div>`).join('');
-    html=`<div class="scene scene-bullets">${_HDR()}${_FTR()}
-      <div class="tb-wrap">
-        <div class="tb-title" id="_tit">${fmt(v.titre||v.titre_principal||'')}</div>
-        <div class="tb-accent"></div>${rows}
-      </div></div>`;
+  } else if(tv === 'big_number'){
+    html = `<div class="scene">
+      ${chrome()}
+      <div class="scn-inner">
+        <div class="bn-label" id="_ey">${esc(v.eyebrow||v.label||v.titre||'').toUpperCase()}</div>
+        <div class="bn-main">
+          <div class="bn-value">${esc(v.valeur||'0')}</div>
+          <div class="bn-unit">${esc(v.unite||'%')}</div>
+          <div class="bn-accent"></div>
+        </div>
+        <div class="bn-context" id="_ctx">${fmt(v.contexte||v.subtitle||'')}</div>
+      </div>
+    </div>`;
 
-  }else if(tv==='bar_chart'){
-    const series=v.series||[];const maxV=Math.max(...series.map(s=>s.valeur),1);const unite=v.unite||'%';
-    const bars=series.map(s=>{
-      const pct=((s.valeur/maxV)*100).toFixed(1);
-      return `<div class="bc-row"><div class="bc-meta"><span class="bc-lbl">${esc(s.label)}</span><span class="bc-vl">${s.valeur}${unite}</span></div><div class="bc-track"><div class="bc-fill" style="--w:${pct}%"></div></div></div>`;
+  } else if(tv === 'text_bullets'){
+    const items = v.items||v.elements||v.points||[];
+    const rows = items.map((it,i)=>`
+      <div class="tb-item" data-i="${i}">
+        <div class="tb-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="tb-text">${fmt(String(it))}</div>
+      </div>`).join('');
+    html = `<div class="scene">
+      ${chrome()}
+      <div class="scn-inner">
+        <div class="tb-title" id="_tit">${(v.titre||v.titre_principal||'').toUpperCase()}</div>
+        <div class="tb-accent"></div>
+        <div class="tb-list">${rows}</div>
+      </div>
+    </div>`;
+
+  } else if(tv === 'bar_chart'){
+    const series = v.series||[];
+    const maxVal = Math.max(...series.map(s=>s.valeur),1);
+    const unite  = v.unite||'%';
+    const cols   = series.map(s=>{
+      const pct = ((s.valeur/maxVal)*100).toFixed(1);
+      return `<div class="bc-col">
+        <div class="bc-col-val">${s.valeur}${unite}</div>
+        <div class="bc-bar-wrap"><div class="bc-bar" style="--h:${pct}%"></div></div>
+        <div class="bc-col-lbl">${esc(s.label)}</div>
+      </div>`;
     }).join('');
-    html=`<div class="scene scene-chart">${_HDR()}${_FTR()}
-      <div class="bc-wrap">
-        <div class="bc-title" id="_tit">${fmt(v.titre||v.titre_principal||'')}</div>
+    html = `<div class="scene">
+      ${chrome()}
+      <div class="scn-inner">
+        <div class="bc-title" id="_tit">${(v.titre||v.titre_principal||'').toUpperCase()}</div>
         <div class="bc-accent"></div>
-        <div class="bc-bars">${bars}</div>
-        ${v.source?`<div class="bc-src">${esc(v.source)}</div>`:''}
-      </div></div>`;
+        <div class="bc-chart">${cols}</div>
+        ${v.source ? `<div class="bc-source">${esc(v.source)}</div>` : ''}
+      </div>
+    </div>`;
 
-  }else{
-    const isStep=tv==='process_steps';
-    const items=isStep?(v.etapes||v.items||[]):(v.items||v.elements||[]);
-    if(isStep&&items.length){
-      const rows=items.map((it,i)=>`<div class="tb-item" data-i="${i}"><div class="tb-bar"></div><div class="tb-text">${fmt(String(it))}</div></div>`).join('');
-      html=`<div class="scene scene-bullets">${_HDR()}${_FTR()}<div class="tb-wrap"><div class="tb-title" id="_tit">${fmt(v.titre||v.titre_principal||'')}</div><div class="tb-accent"></div>${rows}</div></div>`;
-    }else{
-      html=`<div class="scene scene-cta">${_HDR()}${_FTR()}
-        <div class="cta-wrap">
-          <div class="cta-tag">${esc(v.eyebrow||_B())}</div>
-          <div class="cta-headline" id="_hl">${fmt(v.headline||v.titre_principal||v.titre||'')}</div>
-          <div class="cta-accent"></div>
-          <div class="cta-btn">${esc(v.cta_text||v.cta||'Consultation Gratuite')}</div>
-          <div class="cta-url">${esc(v.url||v.site||_U())}</div>
-        </div></div>`;
-    }
+  } else if(tv === 'cta_screen'){
+    html = `<div class="scene scene-cta">
+      ${chrome()}
+      <div class="cta-inner">
+        <div class="cta-brand">${_B().toUpperCase()}</div>
+        <div class="cta-headline" id="_hl">${(v.headline||v.titre_principal||v.titre||'').toUpperCase()}</div>
+        <div class="cta-rule"></div>
+        ${(v.body||v.sous_titre) ? `<div class="cta-sub" id="_sub">${fmt(v.body||v.sous_titre)}</div>` : ''}
+        <div class="cta-btn">${esc(v.cta_text||'Book Now')}</div>
+      </div>
+    </div>`;
+
+  } else {
+    const items = v.etapes||v.items||v.elements||[];
+    const rows = items.map((it,i)=>`
+      <div class="tb-item" data-i="${i}">
+        <div class="tb-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="tb-text">${fmt(String(it))}</div>
+      </div>`).join('');
+    html = `<div class="scene">
+      ${chrome()}
+      <div class="scn-inner">
+        <div class="tb-title" id="_tit">${(v.titre||v.titre_principal||'').toUpperCase()}</div>
+        <div class="tb-accent"></div>
+        <div class="tb-list">${rows}</div>
+      </div>
+    </div>`;
   }
 
-  c.innerHTML=html;
+  c.innerHTML = html;
   setTimeout(()=>{
-    fitText(document.getElementById('_hl'),38);
-    fitText(document.getElementById('_sub'),22);
-    fitText(document.getElementById('_tit'),28);
-    fitText(document.getElementById('_ctx'),20);
-    fitText(document.getElementById('_ey'),18);
-  },60);
+    fitText(document.getElementById('_hl'),  36);
+    fitText(document.getElementById('_sub'), 20);
+    fitText(document.getElementById('_tit'), 28);
+    fitText(document.getElementById('_ctx'), 20);
+  }, 60);
   return true;
 };
 
-window.animateScene=function(){
-  const s=document.querySelector('.scene');if(!s)return;
+window.animateScene = function(){
   requestAnimationFrame(()=>{
-    s.classList.add('active');
-    document.querySelectorAll('.tb-item').forEach((el,i)=>setTimeout(()=>el.classList.add('visible'),100+i*120));
-    setTimeout(()=>document.querySelectorAll('.bc-fill').forEach(el=>el.classList.add('anim')),200);
+    document.querySelectorAll('.tb-item').forEach((el,i)=>{
+      setTimeout(()=>el.classList.add('visible'), 80+i*110);
+    });
+    setTimeout(()=>{
+      document.querySelectorAll('.bc-bar').forEach(el=>el.classList.add('anim'));
+    }, 150);
   });
 };
-window.isAnimationComplete=function(d){return new Promise(r=>setTimeout(r,d||600));};
+window.isAnimationComplete = function(d){ return new Promise(r=>setTimeout(r, d||600)); };
 </script>
 </body>
 </html>
