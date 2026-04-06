@@ -2073,7 +2073,8 @@ async def download_asset(job_id: str):
             for i, p in enumerate(existing, 1):
                 zf.write(p, f"slide_{i:02d}.png")
         buf.seek(0)
-        safe_title = (entry.get("title") or job_id)[:40].replace(" ", "_").replace("/", "-")
+        raw_title = (entry.get("title") or job_id)[:40].replace(" ", "_").replace("/", "-")
+        safe_title = raw_title.encode("ascii", "ignore").decode("ascii")  # strip non-ASCII
         return StreamingResponse(
             buf,
             media_type="application/zip",
@@ -2089,7 +2090,8 @@ async def download_asset(job_id: str):
     }
     suffix = path.suffix.lower()
     media_type = content_type_map.get(suffix, "application/octet-stream")
-    safe_title = (entry.get("title") or job_id)[:40].replace(" ", "_").replace("/", "-")
+    raw_title = (entry.get("title") or job_id)[:40].replace(" ", "_").replace("/", "-")
+    safe_title = raw_title.encode("ascii", "ignore").decode("ascii")  # strip non-ASCII
     filename = f"{safe_title}{suffix}"
     return FileResponse(path, media_type=media_type, filename=filename)
 
