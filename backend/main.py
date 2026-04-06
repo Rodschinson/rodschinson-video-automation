@@ -51,6 +51,11 @@ TEMPLATE_REGISTRY     = PUPPET / "template_registry.json"  # consumed by rendere
 USERS_FILE            = OUTPUT / "users.json"
 COMMENTS_FILE         = OUTPUT / "comments.json"
 SERIES_FILE           = OUTPUT / "series.json"
+STRATEGY_FILE         = OUTPUT / "strategy.json"
+AB_TESTS_FILE         = OUTPUT / "ab_tests.json"
+ASSETS_DIR            = OUTPUT / "assets"
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+ASSETS_FILE           = OUTPUT / "assets.json"
 
 load_dotenv(ROOT / ".env", override=False)
 
@@ -501,6 +506,13 @@ async def _run_pipeline(job_id: str, data: dict, logo_path: Path | None) -> None
         _brand_meta   = await _brand_lookup(brand) or {}
         brand_display = _brand_meta.get("name") or ("Rachid Chikhi" if brand == "rachid" else "Rodschinson Investment")
         brand_context = _brand_meta.get("context") or brand_display
+        _icp = _brand_meta.get("icp") or {}
+        if _icp.get("jobTitle") or _icp.get("painPoints"):
+            _icp_text = (
+                f"TARGET AUDIENCE: {_icp.get('jobTitle','')} in {_icp.get('industry','')}. "
+                f"Pain points: {_icp.get('painPoints','')}. Goals: {_icp.get('goals','')}."
+            )
+            brand_context = f"{brand_context}\n{_icp_text}"
         brand_primary      = _brand_meta.get("primaryColor",    "#08316F")
         brand_accent       = _brand_meta.get("accentColor",     "#C8A96E")
         brand_bg           = _brand_meta.get("backgroundColor", brand_primary)
@@ -2217,6 +2229,13 @@ async def create_brand(data: str = Form(...), logo: Optional[UploadFile] = File(
         "website":          body.get("website",  ""),
         "tagline":          body.get("tagline",  ""),
         "context":          body.get("context",  body["name"].strip()),
+        "icp": {
+            "jobTitle":     body.get("icp", {}).get("jobTitle",    ""),
+            "industry":     body.get("icp", {}).get("industry",    ""),
+            "painPoints":   body.get("icp", {}).get("painPoints",  ""),
+            "goals":        body.get("icp", {}).get("goals",       ""),
+            "demographics": body.get("icp", {}).get("demographics",""),
+        },
         "createdAt":        _now(),
     }
     brands.append(brand)
@@ -2241,7 +2260,7 @@ async def update_brand(brand_id: str, data: str = Form(...), logo: Optional[Uplo
                   "backgroundColor", "headingFont", "bodyFont",
                   "headingFontSize", "bodyFontSize", "captionFontSize",
                   "headingWeight", "bodyWeight",
-                  "website", "tagline", "context"):
+                  "website", "tagline", "context", "icp"):
         if field in body:
             brand[field] = body[field]
 
@@ -4395,3 +4414,607 @@ async def update_settings(body: SettingsUpdateRequest, request: Request):
     _APP_SECRET   = overrides.get("APP_SECRET")   or os.getenv("APP_SECRET", "cs-secret-change-in-prod")
 
     return {"status": "saved", "keys": list(body.updates.keys())}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI STRATEGY LAYER
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Storage helpers ────────────────────────────────────────────────────────────
+async def _strategy_load() -> list[dict]:
+    if not STRATEGY_FILE.exists():
+        return []
+    async with aiofiles.open(STRATEGY_FILE) as f:
+        return json.loads(await f.read())
+
+async def _strategy_save(data: list[dict]) -> None:
+    async with aiofiles.open(STRATEGY_FILE, "w") as f:
+        await f.write(json.dumps(data, indent=2, default=str))
+
+async def _ab_tests_load() -> list[dict]:
+    if not AB_TESTS_FILE.exists():
+        return []
+    async with aiofiles.open(AB_TESTS_FILE) as f:
+        return json.loads(await f.read())
+
+async def _ab_tests_save(data: list[dict]) -> None:
+    async with aiofiles.open(AB_TESTS_FILE, "w") as f:
+        await f.write(json.dumps(data, indent=2, default=str))
+
+async def _assets_load() -> list[dict]:
+    if not ASSETS_FILE.exists():
+        return []
+    async with aiofiles.open(ASSETS_FILE) as f:
+        return json.loads(await f.read())
+
+async def _assets_save(data: list[dict]) -> None:
+    async with aiofiles.open(ASSETS_FILE, "w") as f:
+        await f.write(json.dumps(data, indent=2, default=str))
+
+# ── Shared Claude call helper ──────────────────────────────────────────────────
+async def _claude_strategy(prompt: str, model: str = "claude-haiku-4-5-20251001") -> str:
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise HTTPException(503, "ANTHROPIC_API_KEY not configured")
+    import anthropic
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    msg = await client.messages.create(
+        model=model,
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return msg.content[0].text
+
+
+# ── 1. Content Strategy Generator ─────────────────────────────────────────────
+class StrategyRequest(BaseModel):
+    brand: str
+    industry: str
+    audience: str
+    goals: list[str]              # ["leads", "awareness", "authority"]
+    platforms: list[str]
+    duration_days: int = 30
+
+@app.post("/api/strategy/generate")
+async def generate_strategy(body: StrategyRequest, _=Depends(_require_role("creator"))):
+    brand_meta = await _brand_lookup(body.brand) or {}
+    brand_name = brand_meta.get("name", body.brand)
+    icp = brand_meta.get("icp") or {}
+
+    prompt = f"""You are a senior content strategist. Generate a {body.duration_days}-day content strategy.
+
+BRAND: {brand_name}
+INDUSTRY: {body.industry}
+TARGET AUDIENCE: {body.audience}
+{f'ICP: {icp.get("jobTitle","")} — Pain points: {icp.get("painPoints","")}' if icp.get("jobTitle") else ""}
+GOALS: {", ".join(body.goals)}
+PLATFORMS: {", ".join(body.platforms)}
+
+Return a JSON object with this exact structure:
+{{
+  "summary": "2-sentence strategy overview",
+  "content_pillars": [
+    {{"name": "Educational", "percentage": 40, "description": "...", "examples": ["topic1", "topic2", "topic3"]}},
+    {{"name": "Authority", "percentage": 30, "description": "...", "examples": ["topic1", "topic2", "topic3"]}},
+    {{"name": "Storytelling", "percentage": 20, "description": "...", "examples": ["topic1", "topic2", "topic3"]}},
+    {{"name": "Promotional", "percentage": 10, "description": "...", "examples": ["topic1", "topic2"]}}
+  ],
+  "platform_mix": [
+    {{"platform": "linkedin", "posts_per_week": 3, "best_times": ["08:00", "12:00"], "content_types": ["video", "carousel"]}},
+    {{"platform": "instagram", "posts_per_week": 4, "best_times": ["09:00", "18:00"], "content_types": ["reel", "story"]}}
+  ],
+  "weekly_themes": [
+    {{"week": 1, "theme": "...", "topics": ["topic1", "topic2", "topic3"]}},
+    {{"week": 2, "theme": "...", "topics": ["topic1", "topic2", "topic3"]}},
+    {{"week": 3, "theme": "...", "topics": ["topic1", "topic2", "topic3"]}},
+    {{"week": 4, "theme": "...", "topics": ["topic1", "topic2", "topic3"]}}
+  ],
+  "kpis": ["KPI1", "KPI2", "KPI3"],
+  "warnings": []
+}}
+Return only valid JSON, no markdown."""
+
+    raw = await _claude_strategy(prompt, model="claude-haiku-4-5-20251001")
+    try:
+        strategy_data = json.loads(raw)
+    except json.JSONDecodeError:
+        import re
+        m = re.search(r'\{.*\}', raw, re.DOTALL)
+        strategy_data = json.loads(m.group()) if m else {}
+
+    record = {
+        "id": _new_id(),
+        "brand": body.brand,
+        "industry": body.industry,
+        "audience": body.audience,
+        "goals": body.goals,
+        "platforms": body.platforms,
+        "duration_days": body.duration_days,
+        "strategy": strategy_data,
+        "createdAt": _now(),
+    }
+    strategies = await _strategy_load()
+    strategies.insert(0, record)
+    await _strategy_save(strategies[:20])  # keep last 20
+    return record
+
+
+# ── 2. Auto Calendar Fill ──────────────────────────────────────────────────────
+class CalendarFillRequest(BaseModel):
+    strategy_id: str
+    start_date: str   # YYYY-MM-DD
+
+@app.post("/api/strategy/calendar-fill")
+async def calendar_fill(body: CalendarFillRequest, _=Depends(_require_role("creator"))):
+    strategies = await _strategy_load()
+    strat = next((s for s in strategies if s["id"] == body.strategy_id), None)
+    if not strat:
+        raise HTTPException(404, "Strategy not found")
+
+    platform_mix = strat["strategy"].get("platform_mix", [])
+    weekly_themes = strat["strategy"].get("weekly_themes", [])
+    content_pillars = strat["strategy"].get("content_pillars", [])
+
+    # Build pillar weights for random selection
+    pillar_pool: list[str] = []
+    for p in content_pillars:
+        count = max(1, round(p.get("percentage", 25) / 10))
+        pillar_pool.extend(p.get("examples", [p["name"]]) * count)
+
+    import random, datetime as _dt
+    start = _dt.date.fromisoformat(body.start_date)
+    schedule = await _schedule_load()
+    library = await _library_load()
+    approved_jobs = [j for j in library if j.get("status") in ("Approved", "Ready")]
+
+    created: list[dict] = []
+    day_offset = 0
+    for week_idx, week in enumerate(weekly_themes):
+        week_platforms = {}
+        for pm in platform_mix:
+            ppw = pm.get("posts_per_week", 3)
+            times = pm.get("best_times", ["09:00"])
+            week_platforms[pm["platform"]] = {"ppw": ppw, "times": times, "posted": 0}
+
+        for d in range(7):
+            date_obj = start + _dt.timedelta(days=day_offset)
+            date_str  = date_obj.isoformat()
+            day_offset += 1
+
+            for platform, cfg in week_platforms.items():
+                remaining_days = 7 - d
+                remaining_posts = cfg["ppw"] - cfg["posted"]
+                if remaining_posts <= 0:
+                    break
+                # probabilistic post placement
+                if random.random() < remaining_posts / max(remaining_days, 1):
+                    time_str = cfg["times"][cfg["posted"] % len(cfg["times"])]
+                    slot = "morning" if int(time_str[:2]) < 11 else "noon" if int(time_str[:2]) < 14 else "afternoon" if int(time_str[:2]) < 18 else "evening"
+                    topic = random.choice(week.get("topics", [week["theme"]]))
+                    # pick an approved job if available, else placeholder
+                    job = random.choice(approved_jobs) if approved_jobs else None
+                    entry = {
+                        "id": _new_id(),
+                        "date": date_str,
+                        "slot": slot,
+                        "scheduled_time": time_str,
+                        "platform": platform,
+                        "title": f"[{week['theme']}] {topic}",
+                        "content_type": random.choice(["video", "carousel", "reel"]),
+                        "status": "Scheduled",
+                        "publish_status": "local",
+                        "job_id": job["job_id"] if job else None,
+                        "strategy_id": body.strategy_id,
+                        "week_theme": week["theme"],
+                    }
+                    schedule.append(entry)
+                    created.append(entry)
+                    cfg["posted"] += 1
+
+    await _schedule_save(schedule)
+    return {"created": len(created), "entries": created}
+
+
+# ── 3. Content Mix Analysis ────────────────────────────────────────────────────
+@app.get("/api/strategy/content-mix/{brand_id}")
+async def content_mix(brand_id: str, _=Depends(_require_role("creator"))):
+    library = await _library_load()
+    items = [j for j in library if j.get("brand") == brand_id or brand_id == "all"]
+
+    type_counts: dict[str, int] = {}
+    platform_counts: dict[str, int] = {}
+    status_counts: dict[str, int] = {}
+    total = len(items)
+
+    for item in items:
+        ct = item.get("content_type") or item.get("contentType") or "video"
+        type_counts[ct] = type_counts.get(ct, 0) + 1
+        for p in (item.get("platforms") or []):
+            platform_counts[p] = platform_counts.get(p, 0) + 1
+        st = item.get("status", "Draft")
+        status_counts[st] = status_counts.get(st, 0) + 1
+
+    # Infer content pillars from titles (simple keyword matching)
+    pillar_counts = {"Educational": 0, "Authority": 0, "Storytelling": 0, "Promotional": 0}
+    edu_kw    = ["how", "tips", "guide", "explained", "what is", "learn", "steps"]
+    auth_kw   = ["market", "data", "analysis", "research", "report", "insight"]
+    story_kw  = ["story", "journey", "case", "behind", "personal"]
+    promo_kw  = ["offer", "service", "consultation", "free", "apply", "join"]
+    for item in items:
+        title = (item.get("title") or "").lower()
+        if any(k in title for k in promo_kw):  pillar_counts["Promotional"] += 1
+        elif any(k in title for k in story_kw): pillar_counts["Storytelling"] += 1
+        elif any(k in title for k in auth_kw):  pillar_counts["Authority"] += 1
+        else:                                    pillar_counts["Educational"] += 1
+
+    # Ideal mix targets
+    targets = {"Educational": 40, "Authority": 30, "Storytelling": 20, "Promotional": 10}
+    warnings: list[str] = []
+    if total > 0:
+        for pillar, target in targets.items():
+            actual = round(pillar_counts[pillar] / total * 100)
+            if abs(actual - target) > 15:
+                warnings.append(f"{pillar} is {actual}% (target {target}%) — {'too much' if actual > target else 'too little'}")
+
+    return {
+        "total": total,
+        "by_type": type_counts,
+        "by_platform": platform_counts,
+        "by_status": status_counts,
+        "pillars": {k: {"count": v, "pct": round(v/total*100) if total else 0, "target": targets[k]} for k,v in pillar_counts.items()},
+        "warnings": warnings,
+    }
+
+
+# ── 4. Hook Generator ──────────────────────────────────────────────────────────
+class HookRequest(BaseModel):
+    topic: str
+    brand: str = ""
+    content_type: str = "video"
+    audience: str = ""
+
+@app.post("/api/hooks/generate")
+async def generate_hooks(body: HookRequest, _=Depends(_require_role("creator"))):
+    brand_meta = (await _brand_lookup(body.brand) or {}) if body.brand else {}
+    brand_name = brand_meta.get("name", "")
+    icp = brand_meta.get("icp") or {}
+    audience = body.audience or icp.get("jobTitle", "business professionals")
+
+    prompt = f"""Generate 10 powerful hooks for this content. Each hook must be different in style.
+
+TOPIC: {body.topic}
+CONTENT TYPE: {body.content_type}
+AUDIENCE: {audience}
+{f'BRAND: {brand_name}' if brand_name else ''}
+
+Hook styles to cover: Curiosity, Controversial, Data-driven, Story-based, Question, Bold Statement, Contrast, Fear of Missing Out, How-to Promise, Relatable Problem.
+
+Return JSON array only:
+[
+  {{
+    "style": "Curiosity",
+    "hook": "The hook text here",
+    "score": {{
+      "scroll_stopping": 8,
+      "clarity": 9,
+      "emotional_impact": 7,
+      "total": 8
+    }},
+    "why": "One sentence explaining why this hook works"
+  }}
+]
+Return only valid JSON array, no markdown."""
+
+    raw = await _claude_strategy(prompt)
+    try:
+        hooks = json.loads(raw)
+    except json.JSONDecodeError:
+        import re
+        m = re.search(r'\[.*\]', raw, re.DOTALL)
+        hooks = json.loads(m.group()) if m else []
+
+    # Sort by score descending
+    hooks.sort(key=lambda h: h.get("score", {}).get("total", 0), reverse=True)
+    return {"hooks": hooks, "topic": body.topic}
+
+
+# ── 5. Content Improvement ─────────────────────────────────────────────────────
+class ImproveRequest(BaseModel):
+    job_id: str
+    aspect: str = "overall"   # "hook" | "cta" | "structure" | "virality" | "overall"
+
+@app.post("/api/content/improve")
+async def improve_content(body: ImproveRequest, _=Depends(_require_role("creator"))):
+    library = await _library_load()
+    job = next((j for j in library if j.get("job_id") == body.job_id), None)
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    script_path = OUTPUT / "jobs" / f"{body.job_id}_script.json"
+    script_data: dict = {}
+    if script_path.exists():
+        script_data = json.loads(script_path.read_text())
+
+    title    = job.get("title", "")
+    platform = (job.get("platforms") or ["linkedin"])[0]
+
+    prompt = f"""You are an expert content strategist. Analyze this content and provide specific improvements.
+
+TITLE: {title}
+PLATFORM: {platform}
+CONTENT TYPE: {job.get("content_type") or job.get("contentType", "video")}
+FOCUS: {body.aspect}
+{f'SCRIPT EXCERPT: {str(script_data)[:1000]}' if script_data else ''}
+
+Return JSON:
+{{
+  "score": {{
+    "hook_strength": 7,
+    "clarity": 8,
+    "engagement_potential": 6,
+    "platform_fit": 8,
+    "cta_effectiveness": 5,
+    "overall": 7
+  }},
+  "why_it_works": ["Point 1", "Point 2"],
+  "improvements": [
+    {{"area": "Hook", "issue": "...", "suggestion": "...", "rewrite": "..."}},
+    {{"area": "Structure", "issue": "...", "suggestion": "...", "rewrite": "..."}}
+  ],
+  "improved_title": "Better title here",
+  "improved_hook": "Stronger opening hook here",
+  "improved_cta": "More compelling CTA here"
+}}
+Return only valid JSON."""
+
+    raw = await _claude_strategy(prompt)
+    try:
+        analysis = json.loads(raw)
+    except json.JSONDecodeError:
+        import re
+        m = re.search(r'\{.*\}', raw, re.DOTALL)
+        analysis = json.loads(m.group()) if m else {}
+
+    return {"job_id": body.job_id, "title": title, "analysis": analysis}
+
+
+# ── 6. Viral Rewrite ───────────────────────────────────────────────────────────
+class ViralRewriteRequest(BaseModel):
+    job_id: str
+    platform: str = "linkedin"
+
+@app.post("/api/content/viral-rewrite")
+async def viral_rewrite(body: ViralRewriteRequest, _=Depends(_require_role("creator"))):
+    library = await _library_load()
+    job = next((j for j in library if j.get("job_id") == body.job_id), None)
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    platform_guides = {
+        "linkedin":  "Professional authority voice. Short punchy sentences. Pattern interrupts. Strong data points. End with a question.",
+        "tiktok":    "Fast, punchy, hook in first 2 seconds. Casual language. Relatable. Trend-aware. Use brackets [like this] for emphasis.",
+        "instagram": "Emotional, visual language. Lifestyle focus. Aspirational. Emojis where appropriate. Story-driven.",
+        "twitter":   "Controversial or surprising. Very concise. Thread-worthy. Quotable. Under 280 chars for hook.",
+        "youtube":   "Curiosity gap in title. Promise transformation. Conversational but authoritative.",
+    }
+    guide = platform_guides.get(body.platform, platform_guides["linkedin"])
+
+    prompt = f"""Transform this content to maximize virality on {body.platform}.
+
+ORIGINAL TITLE: {job.get("title","")}
+PLATFORM GUIDE: {guide}
+
+Rewrite using:
+- Storytelling arc: Hook → Problem → Story → Lesson → CTA
+- Shorter, punchier sentences
+- Stronger emotional language
+- Pattern interrupts
+- Social proof or data if applicable
+
+Return JSON:
+{{
+  "viral_title": "...",
+  "viral_hook": "...",
+  "structure": [
+    {{"stage": "Hook",    "content": "...", "duration_sec": 5}},
+    {{"stage": "Problem", "content": "...", "duration_sec": 10}},
+    {{"stage": "Story",   "content": "...", "duration_sec": 20}},
+    {{"stage": "Lesson",  "content": "...", "duration_sec": 10}},
+    {{"stage": "CTA",     "content": "...", "duration_sec": 5}}
+  ],
+  "caption": "Full {body.platform}-optimized caption with hashtags",
+  "predicted_boost": "Estimated engagement improvement explanation"
+}}
+Return only valid JSON."""
+
+    raw = await _claude_strategy(prompt)
+    try:
+        rewrite = json.loads(raw)
+    except json.JSONDecodeError:
+        import re
+        m = re.search(r'\{.*\}', raw, re.DOTALL)
+        rewrite = json.loads(m.group()) if m else {}
+
+    return {"job_id": body.job_id, "platform": body.platform, "rewrite": rewrite}
+
+
+# ── 7. A/B Test ────────────────────────────────────────────────────────────────
+class ABTestRequest(BaseModel):
+    job_id: str
+    test_type: str = "hook"   # "hook" | "caption" | "title"
+
+@app.post("/api/ab-test")
+async def create_ab_test(body: ABTestRequest, _=Depends(_require_role("creator"))):
+    library = await _library_load()
+    job = next((j for j in library if j.get("job_id") == body.job_id), None)
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    prompt = f"""Generate 2 distinct A/B test variants for this content.
+
+TITLE: {job.get("title","")}
+CONTENT TYPE: {job.get("content_type") or job.get("contentType","video")}
+TEST TYPE: {body.test_type}
+
+Return JSON:
+{{
+  "variant_a": {{
+    "label": "Control",
+    "{'hook' if body.test_type == 'hook' else 'caption' if body.test_type == 'caption' else 'title'}": "...",
+    "strategy": "What makes this work",
+    "target_emotion": "curiosity / authority / urgency / etc"
+  }},
+  "variant_b": {{
+    "label": "Challenger",
+    "{'hook' if body.test_type == 'hook' else 'caption' if body.test_type == 'caption' else 'title'}": "...",
+    "strategy": "What makes this work differently",
+    "target_emotion": "curiosity / authority / urgency / etc"
+  }},
+  "hypothesis": "We believe variant B will outperform A because...",
+  "success_metric": "Click-through rate / Watch time / Comments"
+}}
+Return only valid JSON."""
+
+    raw = await _claude_strategy(prompt)
+    try:
+        variants = json.loads(raw)
+    except json.JSONDecodeError:
+        import re
+        m = re.search(r'\{.*\}', raw, re.DOTALL)
+        variants = json.loads(m.group()) if m else {}
+
+    test = {
+        "id": _new_id(),
+        "job_id": body.job_id,
+        "title": job.get("title",""),
+        "test_type": body.test_type,
+        "variants": variants,
+        "status": "running",
+        "winner": None,
+        "createdAt": _now(),
+    }
+    tests = await _ab_tests_load()
+    tests.insert(0, test)
+    await _ab_tests_save(tests[:100])
+    return test
+
+@app.get("/api/ab-test")
+async def list_ab_tests(_=Depends(_require_role("creator"))):
+    return await _ab_tests_load()
+
+@app.patch("/api/ab-test/{test_id}/winner")
+async def set_ab_winner(test_id: str, body: dict = Body(...), _=Depends(_require_role("publisher"))):
+    tests = await _ab_tests_load()
+    idx = next((i for i,t in enumerate(tests) if t["id"] == test_id), None)
+    if idx is None:
+        raise HTTPException(404, "Test not found")
+    tests[idx]["winner"] = body.get("winner")  # "a" | "b"
+    tests[idx]["status"] = "completed"
+    await _ab_tests_save(tests)
+    return tests[idx]
+
+
+# ── 8. Top Performers ─────────────────────────────────────────────────────────
+@app.get("/api/analytics/top-performers")
+async def top_performers(brand: str = "", _=Depends(_require_role("creator"))):
+    library = await _library_load()
+    items = [j for j in library if (not brand or j.get("brand") == brand) and j.get("status") == "Published"]
+
+    # Sort by views/engagement if available, else by recency
+    def _score(j: dict) -> float:
+        v = j.get("views", 0) or 0
+        e = j.get("engagement", 0) or 0
+        return v + e * 10
+
+    scored = sorted(items, key=_score, reverse=True)
+
+    # Best formats
+    fmt_scores: dict[str, list] = {}
+    for j in items:
+        ct = j.get("content_type") or j.get("contentType") or "video"
+        fmt_scores.setdefault(ct, []).append(_score(j))
+    best_formats = sorted(
+        [{"format": k, "avg_score": round(sum(v)/len(v),1), "count": len(v)} for k,v in fmt_scores.items()],
+        key=lambda x: x["avg_score"], reverse=True
+    )
+
+    # Best platforms
+    plt_scores: dict[str, list] = {}
+    for j in items:
+        for p in (j.get("platforms") or []):
+            plt_scores.setdefault(p, []).append(_score(j))
+    best_platforms = sorted(
+        [{"platform": k, "avg_score": round(sum(v)/len(v),1), "count": len(v)} for k,v in plt_scores.items()],
+        key=lambda x: x["avg_score"], reverse=True
+    )
+
+    # Best topics (top words in titles)
+    from collections import Counter
+    stop = {"the","a","an","is","in","of","to","for","and","or","with","on","at","this","that","how","what","why","your","our"}
+    words: list[str] = []
+    for j in items:
+        words += [w.lower() for w in (j.get("title","")).split() if w.lower() not in stop and len(w) > 3]
+    top_topics = [{"topic": w, "count": c} for w, c in Counter(words).most_common(10)]
+
+    return {
+        "total_published": len(items),
+        "top_posts": [{"job_id": j.get("job_id"), "title": j.get("title"), "score": _score(j), "content_type": j.get("content_type") or j.get("contentType"), "platforms": j.get("platforms",[])} for j in scored[:5]],
+        "best_formats": best_formats[:5],
+        "best_platforms": best_platforms[:5],
+        "top_topics": top_topics,
+    }
+
+
+# ── 9. Asset Library ───────────────────────────────────────────────────────────
+@app.get("/api/assets")
+async def list_assets(brand: str = "", _=Depends(_require_role("creator"))):
+    assets = await _assets_load()
+    if brand:
+        assets = [a for a in assets if a.get("brand") == brand or not a.get("brand")]
+    return assets
+
+@app.post("/api/assets")
+async def upload_asset(
+    file: UploadFile = File(...),
+    brand: str = Form(""),
+    label: str = Form(""),
+    asset_type: str = Form("logo"),   # logo | icon | visual | font
+    _=Depends(_require_role("creator")),
+):
+    ext  = Path(file.filename).suffix.lower() or ".png"
+    aid  = _new_id()
+    dest = ASSETS_DIR / f"{aid}{ext}"
+    async with aiofiles.open(dest, "wb") as f:
+        await f.write(await file.read())
+    record = {
+        "id": aid, "brand": brand, "label": label or file.filename,
+        "asset_type": asset_type, "filename": dest.name,
+        "url": f"/api/assets/{aid}/file",
+        "createdAt": _now(),
+    }
+    assets = await _assets_load()
+    assets.insert(0, record)
+    await _assets_save(assets)
+    return record
+
+@app.get("/api/assets/{asset_id}/file")
+async def get_asset_file(asset_id: str, _=Depends(_require_role("creator"))):
+    assets = await _assets_load()
+    asset = next((a for a in assets if a["id"] == asset_id), None)
+    if not asset:
+        raise HTTPException(404, "Asset not found")
+    path = ASSETS_DIR / asset["filename"]
+    if not path.exists():
+        raise HTTPException(404, "File not found")
+    from fastapi.responses import FileResponse
+    return FileResponse(str(path))
+
+@app.delete("/api/assets/{asset_id}", status_code=204)
+async def delete_asset(asset_id: str, _=Depends(_require_role("creator"))):
+    assets = await _assets_load()
+    asset  = next((a for a in assets if a["id"] == asset_id), None)
+    if asset:
+        path = ASSETS_DIR / asset["filename"]
+        if path.exists():
+            path.unlink()
+        await _assets_save([a for a in assets if a["id"] != asset_id])

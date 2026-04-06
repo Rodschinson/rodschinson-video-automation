@@ -159,6 +159,13 @@ function BrandModal({ brand, onClose, onSaved }) {
     website:         brand?.website         || '',
     tagline:         brand?.tagline         || '',
     context:         brand?.context         || '',
+    icp: {
+      jobTitle:     brand?.icp?.jobTitle     || '',
+      industry:     brand?.icp?.industry     || '',
+      painPoints:   brand?.icp?.painPoints   || '',
+      goals:        brand?.icp?.goals        || '',
+      demographics: brand?.icp?.demographics || '',
+    },
   })
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -304,6 +311,40 @@ function BrandModal({ brand, onClose, onSaved }) {
             <textarea value={form.context} onChange={e => set('context', e.target.value)} rows={2}
               placeholder="e.g. Premium CRE & M&A advisory firm based in Brussels, Dubai and Casablanca. Targets HNW investors and family offices."
               style={{ width: '100%', boxSizing: 'border-box', background: 'var(--cs-input-bg)', border: '1px solid var(--cs-border)', borderRadius: 7, padding: '8px 12px', color: 'var(--cs-text)', fontSize: 12, resize: 'vertical', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5 }} />
+          </div>
+
+          {/* ICP — Ideal Customer Profile */}
+          <div style={{ padding: '14px', borderRadius: 9, background: 'var(--cs-surface2)', border: '1px solid var(--cs-border)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(0,182,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
+              Ideal Customer Profile <span style={{ color: 'var(--cs-text-muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— injected into every generation prompt</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              {[
+                { key: 'jobTitle',  placeholder: 'e.g. Family Office Manager, CFO' },
+                { key: 'industry',  placeholder: 'e.g. Real Estate, Private Equity' },
+              ].map(({ key, placeholder }) => (
+                <div key={key}>
+                  <label style={{ color: 'var(--cs-text-muted)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>
+                    {key === 'jobTitle' ? 'Job title' : 'Industry'}
+                  </label>
+                  <input value={form.icp[key]} onChange={e => setForm(f => ({ ...f, icp: { ...f.icp, [key]: e.target.value } }))}
+                    placeholder={placeholder}
+                    style={{ width: '100%', boxSizing: 'border-box', background: 'var(--cs-input-bg)', border: '1px solid var(--cs-border)', borderRadius: 6, padding: '7px 10px', color: 'var(--cs-text)', fontSize: 12, outline: 'none', fontFamily: 'inherit' }} />
+                </div>
+              ))}
+            </div>
+            {[
+              { key: 'demographics', label: 'Demographics', placeholder: 'e.g. 35–55, HNW individuals, Europe & MENA' },
+              { key: 'painPoints',   label: 'Pain points',  placeholder: 'e.g. Lack of deal flow, due diligence complexity' },
+              { key: 'goals',        label: 'Goals',        placeholder: 'e.g. Diversify portfolio, 12%+ IRR, cross-border deals' },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key} style={{ marginBottom: 10 }}>
+                <label style={{ color: 'var(--cs-text-muted)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>{label}</label>
+                <input value={form.icp[key]} onChange={e => setForm(f => ({ ...f, icp: { ...f.icp, [key]: e.target.value } }))}
+                  placeholder={placeholder}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'var(--cs-input-bg)', border: '1px solid var(--cs-border)', borderRadius: 6, padding: '7px 10px', color: 'var(--cs-text)', fontSize: 12, outline: 'none', fontFamily: 'inherit' }} />
+              </div>
+            ))}
           </div>
 
         </div>

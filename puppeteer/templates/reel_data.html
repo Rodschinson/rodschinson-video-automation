@@ -12,7 +12,7 @@
 html, body {
   width:1080px; height:1920px; overflow:hidden;
   font-family:'Space Grotesk', sans-serif;
-  background:#060D15; color:#fff;
+  background:var(--brand-bg, #060D15); color:#fff;
 }
 #scene-container { width:1080px; height:1920px; position:relative; }
 
@@ -20,7 +20,7 @@ html, body {
 .scene {
   width:1080px; height:1920px; position:absolute; inset:0;
   display:flex; flex-direction:column; overflow:hidden;
-  background:#060D15;
+  background:var(--brand-bg, #060D15);
 }
 
 /* Dot grid background */

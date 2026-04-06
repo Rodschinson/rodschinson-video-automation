@@ -405,6 +405,8 @@ async function renderScene(browser, rawScene, opts) {
           ['--blue2',              b.primary], ['--bg',             b.bg],
           ['--sky',                b.accent],  ['--sky-blue',       b.accent],
           ['--gold',               b.accent],  ['--accent',         b.accent],
+          ['--dark',               b.bg],
+          ['--dark2',              b.bg],
           ['--font-heading',       b.headingFont  || 'inherit'],
           ['--font-body',          b.bodyFont     || 'inherit'],
           ['--font-size-heading',  b.headingSize  ? b.headingSize + 'px' : null],
