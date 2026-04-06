@@ -654,6 +654,234 @@ function RepurposeModal({ item, onClose }) {
 }
 
 
+// ─── AI Action Panels ────────────────────────────────────────────────────────
+
+function HooksPanel({ item, onClose }) {
+  const [loading, setLoading] = useState(false)
+  const [hooks, setHooks]     = useState(null)
+  const [platform, setPlatform] = useState(item.platforms?.[0] || 'linkedin')
+  const [copied, setCopied]   = useState(null)
+
+  const generate = async () => {
+    setLoading(true); setHooks(null)
+    try {
+      const r = await apiFetch('/api/hooks/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: item.job_id, brand: item.brand, topic: item.title, platform, count: 8 }),
+      })
+      if (r.ok) setHooks(await r.json())
+    } finally { setLoading(false) }
+  }
+
+  const copy = (text, i) => {
+    navigator.clipboard.writeText(text)
+    setCopied(i); setTimeout(() => setCopied(null), 1500)
+  }
+
+  return (
+    <div style={{ background: 'var(--cs-surface2)', border: '1px solid rgba(200,169,110,0.25)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#C8A96E', textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚡ Hook Generator</div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text-muted)', fontSize: 14 }}>✕</button>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        {(item.platforms?.length ? item.platforms : ['linkedin']).map(p => (
+          <button key={p} onClick={() => setPlatform(p)} style={{
+            padding: '3px 10px', borderRadius: 4, fontSize: 11, cursor: 'pointer',
+            border: `1px solid ${platform === p ? '#C8A96E' : 'var(--cs-border)'}`,
+            background: platform === p ? 'rgba(200,169,110,0.12)' : 'transparent',
+            color: platform === p ? '#C8A96E' : 'var(--cs-text-muted)',
+          }}>{p}</button>
+        ))}
+        <button onClick={generate} disabled={loading} style={{
+          marginLeft: 'auto', padding: '4px 14px', borderRadius: 6, border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+          background: loading ? 'var(--cs-hover)' : 'linear-gradient(135deg,#b8960a,#C8A96E)',
+          color: loading ? 'var(--cs-text-muted)' : '#fff', fontSize: 11, fontWeight: 700,
+        }}>{loading ? 'Generating…' : 'Generate'}</button>
+      </div>
+      {hooks && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+          {(hooks.hooks || hooks).map((h, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+              padding: '8px 10px', borderRadius: 7, background: 'var(--cs-surface)',
+              border: '1px solid var(--cs-border)',
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, color: 'var(--cs-text)', lineHeight: 1.5 }}>{h.text || h}</div>
+                {h.score && <div style={{ fontSize: 10, color: '#C8A96E', marginTop: 3 }}>Score: {h.score}/10</div>}
+              </div>
+              <button onClick={() => copy(h.text || h, i)} style={{
+                flexShrink: 0, padding: '3px 7px', borderRadius: 4, fontSize: 10, cursor: 'pointer',
+                border: '1px solid var(--cs-border)', background: copied === i ? 'rgba(34,197,94,0.1)' : 'transparent',
+                color: copied === i ? '#22c55e' : 'var(--cs-text-muted)',
+              }}>{copied === i ? '✓' : 'Copy'}</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ImprovePanel({ item, onClose }) {
+  const [loading, setLoading] = useState(false)
+  const [result, setResult]   = useState(null)
+
+  const run = async () => {
+    setLoading(true); setResult(null)
+    try {
+      const r = await apiFetch('/api/content/improve', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: item.job_id, brand: item.brand }),
+      })
+      if (r.ok) setResult(await r.json())
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div style={{ background: 'var(--cs-surface2)', border: '1px solid rgba(2,132,199,0.25)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.08em' }}>✦ Improve Content</div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text-muted)', fontSize: 14 }}>✕</button>
+      </div>
+      {!result ? (
+        <button onClick={run} disabled={loading} style={{
+          width: '100%', padding: '8px', borderRadius: 6, border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+          background: loading ? 'var(--cs-hover)' : 'linear-gradient(135deg,#0369a1,#0284c7)',
+          color: loading ? 'var(--cs-text-muted)' : '#fff', fontSize: 12, fontWeight: 600,
+        }}>{loading ? 'Analyzing…' : 'Analyze & improve'}</button>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
+          {result.score !== undefined && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: result.score >= 7 ? '#22c55e' : result.score >= 5 ? '#f59e0b' : '#ef4444' }}>{result.score}<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--cs-text-muted)' }}>/10</span></div>
+              <div style={{ fontSize: 12, color: 'var(--cs-text-sub)', flex: 1 }}>{result.summary || 'Content score'}</div>
+            </div>
+          )}
+          {result.improvements?.map((imp, i) => (
+            <div key={i} style={{ padding: '8px 10px', borderRadius: 7, background: 'var(--cs-surface)', border: '1px solid rgba(2,132,199,0.15)', fontSize: 12, color: 'var(--cs-text)', lineHeight: 1.5 }}>
+              <span style={{ fontWeight: 600, color: '#0284c7' }}>{i + 1}.</span> {imp}
+            </div>
+          ))}
+          {result.rewrite && (
+            <div style={{ padding: '10px', borderRadius: 7, background: 'rgba(2,132,199,0.06)', border: '1px solid rgba(2,132,199,0.2)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Suggested rewrite</div>
+              <div style={{ fontSize: 12, color: 'var(--cs-text)', lineHeight: 1.6 }}>{result.rewrite}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ViralPanel({ item, onClose }) {
+  const [loading, setLoading] = useState(false)
+  const [result, setResult]   = useState(null)
+
+  const run = async () => {
+    setLoading(true); setResult(null)
+    try {
+      const r = await apiFetch('/api/content/viral-rewrite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: item.job_id, brand: item.brand }),
+      })
+      if (r.ok) setResult(await r.json())
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div style={{ background: 'var(--cs-surface2)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.08em' }}>🔥 Make Viral</div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text-muted)', fontSize: 14 }}>✕</button>
+      </div>
+      {!result ? (
+        <button onClick={run} disabled={loading} style={{
+          width: '100%', padding: '8px', borderRadius: 6, border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+          background: loading ? 'var(--cs-hover)' : 'linear-gradient(135deg,#6d28d9,#8b5cf6)',
+          color: loading ? 'var(--cs-text-muted)' : '#fff', fontSize: 12, fontWeight: 600,
+        }}>{loading ? 'Rewriting…' : 'Generate viral versions'}</button>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 320, overflowY: 'auto' }}>
+          {result.story_arc && (
+            <div style={{ padding: '8px 10px', borderRadius: 7, background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)', fontSize: 11, color: '#8b5cf6' }}>
+              Arc: {result.story_arc}
+            </div>
+          )}
+          {result.versions?.map((v, i) => (
+            <div key={i} style={{ padding: '10px', borderRadius: 7, background: 'var(--cs-surface)', border: '1px solid var(--cs-border)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{v.style || `Version ${i+1}`}</div>
+              {v.hook && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--cs-text)', marginBottom: 4 }}>{v.hook}</div>}
+              {v.body && <div style={{ fontSize: 11, color: 'var(--cs-text-sub)', lineHeight: 1.5 }}>{v.body}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ABTestPanel({ item, onClose }) {
+  const [hypothesis, setHypothesis] = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [result, setResult]         = useState(null)
+
+  const create = async () => {
+    setLoading(true); setResult(null)
+    try {
+      const r = await apiFetch('/api/ab-test', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: item.job_id, brand: item.brand, hypothesis }),
+      })
+      if (r.ok) setResult(await r.json())
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div style={{ background: 'var(--cs-surface2)', border: '1px solid rgba(20,184,166,0.25)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#14b8a6', textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚖ A/B Test</div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text-muted)', fontSize: 14 }}>✕</button>
+      </div>
+      {!result ? (
+        <>
+          <input
+            value={hypothesis}
+            onChange={e => setHypothesis(e.target.value)}
+            placeholder="Hypothesis (e.g. emotional hook vs data hook)"
+            style={{
+              width: '100%', marginBottom: 8, padding: '7px 10px', borderRadius: 6,
+              border: '1px solid var(--cs-border)', background: 'var(--cs-surface)',
+              color: 'var(--cs-text)', fontSize: 12,
+            }}
+          />
+          <button onClick={create} disabled={loading} style={{
+            width: '100%', padding: '8px', borderRadius: 6, border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+            background: loading ? 'var(--cs-hover)' : 'linear-gradient(135deg,#0f766e,#14b8a6)',
+            color: loading ? 'var(--cs-text-muted)' : '#fff', fontSize: 12, fontWeight: 600,
+          }}>{loading ? 'Creating…' : 'Create A/B test'}</button>
+        </>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: '#14b8a6', fontWeight: 600 }}>Test created ✓</div>
+          {result.variants?.map((v, i) => (
+            <div key={i} style={{ padding: '8px 10px', borderRadius: 7, background: 'var(--cs-surface)', border: '1px solid rgba(20,184,166,0.2)' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#14b8a6', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Variant {String.fromCharCode(65 + i)}</div>
+              {v.hook && <div style={{ fontSize: 12, color: 'var(--cs-text)', lineHeight: 1.5 }}>{v.hook}</div>}
+              {v.angle && <div style={{ fontSize: 11, color: 'var(--cs-text-sub)', marginTop: 3 }}>Angle: {v.angle}</div>}
+            </div>
+          ))}
+          {result.hypothesis && <div style={{ fontSize: 11, color: 'var(--cs-text-muted)', fontStyle: 'italic' }}>{result.hypothesis}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Modal actions ────────────────────────────────────────────────────────────
+
 function ModalActions({ item, onStatusChange, onRegenerate, onDelete, onClose }) {
   const currentIdx = STATUS_FLOW.indexOf(item.status)
   const nextStatus = STATUS_FLOW[currentIdx + 1]
@@ -661,6 +889,14 @@ function ModalActions({ item, onStatusChange, onRegenerate, onDelete, onClose })
   const [showSchedule,  setShowSchedule]  = useState(false)
   const [showPublish,   setShowPublish]   = useState(false)
   const [showRepurpose, setShowRepurpose] = useState(false)
+  const [showHooks,     setShowHooks]     = useState(false)
+  const [showImprove,   setShowImprove]   = useState(false)
+  const [showViral,     setShowViral]     = useState(false)
+  const [showABTest,    setShowABTest]    = useState(false)
+
+  const closeAll = () => {
+    setShowHooks(false); setShowImprove(false); setShowViral(false); setShowABTest(false)
+  }
 
   return (
     <div>
@@ -681,6 +917,32 @@ function ModalActions({ item, onStatusChange, onRegenerate, onDelete, onClose })
           onClose={() => setShowSchedule(false)}
         />
       )}
+
+      {/* AI panels */}
+      {showHooks   && <HooksPanel   item={item} onClose={() => setShowHooks(false)} />}
+      {showImprove && <ImprovePanel item={item} onClose={() => setShowImprove(false)} />}
+      {showViral   && <ViralPanel   item={item} onClose={() => setShowViral(false)} />}
+      {showABTest  && <ABTestPanel  item={item} onClose={() => setShowABTest(false)} />}
+
+      {/* AI toolbar */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid var(--cs-border)' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--cs-text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', alignSelf: 'center', marginRight: 2 }}>AI</span>
+        {[
+          { key: 'hooks',   label: '⚡ Hooks',   color: '#C8A96E', show: showHooks,   set: () => { closeAll(); setShowHooks(v => !v) } },
+          { key: 'improve', label: '✦ Improve',  color: '#0284c7', show: showImprove, set: () => { closeAll(); setShowImprove(v => !v) } },
+          { key: 'viral',   label: '🔥 Viral',   color: '#8b5cf6', show: showViral,   set: () => { closeAll(); setShowViral(v => !v) } },
+          { key: 'abtest',  label: '⚖ A/B Test', color: '#14b8a6', show: showABTest,  set: () => { closeAll(); setShowABTest(v => !v) } },
+        ].map(({ key, label, color, show, set }) => (
+          <button key={key} onClick={set} style={{
+            padding: '5px 11px', borderRadius: 5, cursor: 'pointer', fontSize: 11, fontWeight: 600,
+            border: `1px solid ${show ? color : 'var(--cs-border)'}`,
+            background: show ? `${color}14` : 'transparent',
+            color: show ? color : 'var(--cs-text-muted)',
+            transition: 'all 0.12s',
+          }}>{label}</button>
+        ))}
+      </div>
+
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ color: 'var(--cs-text-muted)', fontSize: 12 }}>{fmtDate(item.created_at)}</span>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

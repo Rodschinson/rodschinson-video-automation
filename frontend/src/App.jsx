@@ -13,6 +13,7 @@ import Brands      from './pages/Brands'
 import Templates   from './pages/Templates'
 import Settings    from './pages/Settings'
 import Login       from './pages/Login'
+import Strategy    from './pages/Strategy'
 
 function PrivateRoute({ children }) {
   const { isAuth, checking } = useAuth()
@@ -59,6 +60,7 @@ export default function App() {
                     <Route path="library"     element={<Library />} />
                     <Route path="schedule"    element={<Schedule />} />
                     <Route path="analytics"   element={<Analytics />} />
+                    <Route path="strategy"    element={<Strategy />} />
                     <Route path="brands"      element={<Brands />} />
                     <Route path="templates"   element={<Templates />} />
                     <Route path="settings"    element={<Settings />} />
