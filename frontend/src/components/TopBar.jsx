@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { useGeneration } from '../contexts/GenerationContext'
 import { useMobile } from '../hooks/useMobile'
+import { Menu, Sun, Moon, ChevronRight } from 'lucide-react'
 
 // ─── Content type icons ───────────────────────────────────────────────────────
 const TYPE_ICONS = {
@@ -13,66 +14,73 @@ const TYPE_ICONS = {
 // ─── Spinner SVG ──────────────────────────────────────────────────────────────
 function Spin({ size = 12, color = '#00B6FF' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 14 14" style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }}>
-      <circle cx="7" cy="7" r="5.5" fill="none" stroke={color + '44'} strokeWidth="1.5" />
-      <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    <svg width={size} height={size} viewBox="0 0 14 14" style={{ animation: 'spin 0.7s linear infinite', flexShrink: 0 }}>
+      <circle cx="7" cy="7" r="5.5" fill="none" stroke={color + '33'} strokeWidth="1.8" />
+      <path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   )
 }
 
-// ─── Job row inside dropdown ──────────────────────────────────────────────────
+// ─── Job row ──────────────────────────────────────────────────────────────────
 function JobRow({ job, onViewInLibrary, onClear, onCancel }) {
-  const isRunning  = job.status === 'pending' || job.status === 'running'
-  const isDone     = job.status === 'done'
-  const isError    = job.status === 'error'
-  const isAborted  = job.status === 'aborted'
+  const isRunning = job.status === 'pending' || job.status === 'running'
+  const isDone    = job.status === 'done'
+  const isError   = job.status === 'error'
+  const isAborted = job.status === 'aborted'
 
-  const age = job.startedAt ? Math.floor((Date.now() - job.startedAt) / 60000) : null
+  const statusColor = isDone ? '#22c55e' : isError ? '#f87171' : isAborted ? '#6b7280' : '#00B6FF'
 
   return (
     <div style={{
-      padding: '10px 14px',
-      borderBottom: '1px solid var(--cs-border-sub)',
-      display: 'flex', flexDirection: 'column', gap: 6,
+      padding: '11px 16px',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      display: 'flex', flexDirection: 'column', gap: 7,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 14, flexShrink: 0 }}>{TYPE_ICONS[job.contentType] || '📄'}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        {/* Type icon */}
+        <span style={{
+          width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+          background: 'rgba(255,255,255,0.06)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13,
+        }}>
+          {TYPE_ICONS[job.contentType] || '📄'}
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{
-            display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--cs-text)',
+          <div style={{
+            fontSize: 12, fontWeight: 600, color: 'var(--cs-text)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{job.title || 'Untitled'}</span>
-          {age !== null && age > 0 && (
-            <span style={{ fontSize: 10, color: 'var(--cs-text-muted)' }}>
-              {age < 60 ? `${age}m ago` : `${Math.floor(age/60)}h ago`}
-            </span>
-          )}
+          }}>{job.title || 'Untitled'}</div>
+          <div style={{ fontSize: 10, color: 'var(--cs-text-muted)', marginTop: 1 }}>
+            {isRunning ? (job.step || 'Processing…') : isDone ? 'Completed' : isAborted ? 'Cancelled' : 'Failed'}
+          </div>
         </div>
-        {isRunning  && <Spin />}
-        {isDone     && <span style={{ fontSize: 14 }}>✅</span>}
-        {isError    && <span style={{ fontSize: 14 }}>❌</span>}
-        {isAborted  && <span style={{ fontSize: 14 }}>⛔</span>}
+        {/* Status indicator */}
+        <div style={{
+          width: 7, height: 7, borderRadius: '50%',
+          background: statusColor, flexShrink: 0,
+          boxShadow: isRunning || isDone ? `0 0 6px ${statusColor}` : 'none',
+        }} />
+        {isRunning && <Spin />}
       </div>
 
       {/* Progress bar */}
       {isRunning && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-            <span style={{ fontSize: 10, color: 'var(--cs-text-muted)' }}>{job.step || 'Processing…'}</span>
-            <span style={{ fontSize: 10, color: '#00B6FF', fontWeight: 600 }}>{job.progress}%</span>
-          </div>
-          <div style={{ height: 3, background: 'var(--cs-border)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ position: 'relative', height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{
               height: '100%', borderRadius: 2,
-              background: 'linear-gradient(90deg,#08316F,#00B6FF)',
+              background: 'linear-gradient(90deg, #0a5cbf, #00B6FF)',
               width: `${job.progress}%`, transition: 'width 0.5s ease',
+              boxShadow: '0 0 8px rgba(0,182,255,0.5)',
             }} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 10, color: '#00B6FF', fontWeight: 600 }}>{job.progress}%</span>
             <button onClick={onCancel} style={{
               padding: '2px 8px', borderRadius: 4,
-              border: '1px solid rgba(239,68,68,0.3)',
-              background: 'rgba(239,68,68,0.06)', color: '#f87171',
+              border: '1px solid rgba(239,68,68,0.25)',
+              background: 'rgba(239,68,68,0.07)', color: '#f87171',
               fontSize: 10, fontWeight: 600, cursor: 'pointer',
             }}>Cancel</button>
           </div>
@@ -82,14 +90,17 @@ function JobRow({ job, onViewInLibrary, onClear, onCancel }) {
       {isDone && (
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={onViewInLibrary} style={{
-            flex: 1, padding: '4px 10px', borderRadius: 5, border: 'none',
+            flex: 1, padding: '5px 10px', borderRadius: 6, border: 'none',
             background: 'rgba(0,182,255,0.1)', color: '#00B6FF',
             fontSize: 11, fontWeight: 600, cursor: 'pointer',
-          }}>View in Library</button>
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          }}>
+            View in Library <ChevronRight size={11} />
+          </button>
           <button onClick={onClear} style={{
-            padding: '4px 8px', borderRadius: 5, border: '1px solid var(--cs-border)',
+            width: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)',
             background: 'transparent', color: 'var(--cs-text-muted)',
-            fontSize: 11, cursor: 'pointer',
+            fontSize: 13, cursor: 'pointer',
           }}>✕</button>
         </div>
       )}
@@ -97,16 +108,38 @@ function JobRow({ job, onViewInLibrary, onClear, onCancel }) {
       {(isError || isAborted) && (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span style={{ flex: 1, fontSize: 11, color: isAborted ? 'var(--cs-text-muted)' : '#f87171' }}>
-            {job.detail || (isAborted ? 'Cancelled' : 'Generation failed')}
+            {job.detail || (isAborted ? 'Generation cancelled' : 'Generation failed')}
           </span>
           <button onClick={onClear} style={{
-            padding: '4px 8px', borderRadius: 5, border: '1px solid var(--cs-border)',
-            background: 'transparent', color: 'var(--cs-text-muted)',
-            fontSize: 11, cursor: 'pointer',
+            padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(255,255,255,0.07)',
+            background: 'transparent', color: 'var(--cs-text-muted)', fontSize: 11, cursor: 'pointer',
           }}>✕</button>
         </div>
       )}
     </div>
+  )
+}
+
+// ─── Icon button ──────────────────────────────────────────────────────────────
+function IconBtn({ onClick, title, active, children }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 34, height: 34, borderRadius: 9,
+        border: '1px solid',
+        borderColor: active || hov ? 'rgba(0,182,255,0.3)' : 'var(--cs-border)',
+        background: active ? 'rgba(0,182,255,0.1)' : hov ? 'var(--cs-hover)' : 'transparent',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.15s', position: 'relative', flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -117,10 +150,9 @@ export default function TopBar({ onMenuClick }) {
   const navigate = useNavigate()
   const isMobile = useMobile()
 
-  const [open, setOpen] = useState(false)
-  const dropRef = useRef()
+  const [open, setOpen]   = useState(false)
+  const dropRef           = useRef()
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handler(e) {
       if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false)
@@ -129,7 +161,7 @@ export default function TopBar({ onMenuClick }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const hasJobs = jobs.length > 0
+  const hasJobs    = jobs.length > 0
   const activeCount = jobs.filter(j => j.status === 'pending' || j.status === 'running').length
 
   const handleToggle = () => {
@@ -137,128 +169,119 @@ export default function TopBar({ onMenuClick }) {
     setOpen(s => !s)
   }
 
-  const handleViewInLibrary = (job) => {
-    clearJob(job.job_id)
-    setOpen(false)
-    navigate('/library')
-  }
-
   return (
-    <header style={{
-      height: 56,
-      background: 'var(--cs-surface)',
+    <header className="cs-topbar-glass" style={{
+      height: 'var(--cs-topbar-h)',
       borderBottom: '1px solid var(--cs-border)',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 24px', flexShrink: 0, position: 'relative', zIndex: 40,
-      boxShadow: '0 1px 0 var(--cs-border), 0 2px 12px rgba(0,0,0,0.06)',
+      padding: '0 20px 0 16px', flexShrink: 0,
+      position: 'relative', zIndex: 40,
     }}>
-      {/* Logo + hamburger on mobile */}
+
+      {/* Left: hamburger (mobile) + breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {isMobile && (
-          <button
-            onClick={onMenuClick}
-            style={{
-              width: 34, height: 34, borderRadius: 8, border: '1px solid var(--cs-border)',
-              background: 'var(--cs-surface)', cursor: 'pointer',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
-              padding: 0, flexShrink: 0,
-            }}
-          >
-            <span style={{ width: 14, height: 1.5, background: 'var(--cs-text-sub)', borderRadius: 1, display: 'block' }} />
-            <span style={{ width: 14, height: 1.5, background: 'var(--cs-text-sub)', borderRadius: 1, display: 'block' }} />
-            <span style={{ width: 14, height: 1.5, background: 'var(--cs-text-sub)', borderRadius: 1, display: 'block' }} />
-          </button>
+          <IconBtn onClick={onMenuClick} title="Menu">
+            <Menu size={15} color="var(--cs-text-sub)" />
+          </IconBtn>
         )}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ color: '#08316F', fontWeight: 700, fontSize: 16, letterSpacing: '-0.3px' }}>
-            Rodschinson
-          </span>
-          <span style={{ color: 'var(--cs-text-muted)', fontSize: 14 }}>/</span>
-          <span style={{ color: 'var(--cs-text-sub)', fontWeight: 400, fontSize: 14 }}>
-            Content Studio
-          </span>
-        </div>
+        {/* Subtle breadcrumb on desktop */}
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: 6,
+              background: 'linear-gradient(135deg, #08316F, #00B6FF)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ color: '#fff', fontWeight: 800, fontSize: 11 }}>R</span>
+            </div>
+            <span style={{ color: 'var(--cs-text-muted)', fontSize: 13, fontWeight: 400 }}>
+              Content Studio
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Right side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {/* Right actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
-        {/* Generation queue indicator */}
+        {/* Generation queue */}
         <div ref={dropRef} style={{ position: 'relative' }}>
-          <button
-            onClick={handleToggle}
-            title="Generation queue"
-            style={{
-              position: 'relative', width: 34, height: 34, borderRadius: 8,
-              border: '1px solid var(--cs-border)',
-              background: open ? 'rgba(0,182,255,0.08)' : 'var(--cs-surface)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.15s',
-            }}
-          >
-            {/* Animated spinner when jobs are active */}
-            {activeCount > 0 ? <Spin size={16} /> : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--cs-text-sub)" strokeWidth="2" strokeLinecap="round">
+          <IconBtn onClick={handleToggle} title="Generation queue" active={open}>
+            {activeCount > 0 ? <Spin size={15} /> : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--cs-text-sub)" strokeWidth="1.8" strokeLinecap="round">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             )}
-            {/* Badge */}
             {badgeCount > 0 && (
               <span style={{
-                position: 'absolute', top: -4, right: -4,
-                width: 16, height: 16, borderRadius: '50%',
+                position: 'absolute', top: -3, right: -3,
+                minWidth: 16, height: 16, borderRadius: 8, padding: '0 3px',
                 background: activeCount > 0 ? '#00B6FF' : '#22c55e',
                 color: '#fff', fontSize: 9, fontWeight: 700,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: '2px solid var(--cs-surface)',
+                border: '2px solid var(--cs-bg)',
               }}>
                 {badgeCount}
               </span>
             )}
-          </button>
+          </IconBtn>
 
           {/* Dropdown */}
           {open && (
             <div style={{
               position: 'absolute', top: 42, right: 0, zIndex: 100,
-              background: 'var(--cs-surface)', border: '1px solid var(--cs-border)',
-              borderRadius: 10, width: 300,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-              overflow: 'hidden', animation: 'fadein 0.12s ease',
+              background: 'var(--cs-surface)',
+              border: '1px solid var(--cs-border)',
+              borderRadius: 12, width: 320,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04)',
+              overflow: 'hidden', animation: 'slidedown 0.14s ease',
             }}>
+              {/* Header */}
               <div style={{
-                padding: '10px 14px', borderBottom: '1px solid var(--cs-border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '11px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                borderBottom: '1px solid var(--cs-border)',
+                background: 'var(--cs-surface2)',
               }}>
-                <span style={{ color: 'var(--cs-text)', fontSize: 12, fontWeight: 700 }}>
-                  Generation Queue
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ color: 'var(--cs-text)', fontSize: 12, fontWeight: 700 }}>Queue</span>
                   {activeCount > 0 && (
-                    <span style={{ marginLeft: 6, color: '#00B6FF', fontSize: 11 }}>
-                      · {activeCount} running
+                    <span style={{
+                      padding: '1px 7px', borderRadius: 20,
+                      background: 'rgba(0,182,255,0.12)', color: '#00B6FF',
+                      fontSize: 10, fontWeight: 600,
+                    }}>
+                      {activeCount} running
                     </span>
                   )}
-                </span>
+                </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {jobs.some(j => j.status === 'done' || j.status === 'error' || j.status === 'aborted') && (
-                    <button onClick={clearAllDone} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cs-text-muted)', fontSize: 11 }}>
+                  {jobs.some(j => ['done','error','aborted'].includes(j.status)) && (
+                    <button onClick={clearAllDone} style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--cs-text-muted)', fontSize: 11, padding: 0,
+                    }}>
                       Clear done
                     </button>
                   )}
                   {hasJobs && (
-                    <button
-                      onClick={() => { navigate('/library'); setOpen(false) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#00B6FF', fontSize: 11 }}
-                    >
-                      Library →
+                    <button onClick={() => { navigate('/library'); setOpen(false) }} style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#00B6FF', fontSize: 11, padding: 0,
+                      display: 'flex', alignItems: 'center', gap: 3,
+                    }}>
+                      Library <ChevronRight size={11} />
                     </button>
                   )}
                 </div>
               </div>
 
+              {/* Job list */}
               {!hasJobs ? (
-                <div style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--cs-text-muted)', fontSize: 12 }}>
-                  No active generations
+                <div style={{ padding: '28px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}>⚡</div>
+                  <div style={{ color: 'var(--cs-text-muted)', fontSize: 12 }}>No active generations</div>
                 </div>
               ) : (
                 <div style={{ maxHeight: 360, overflowY: 'auto' }}>
@@ -266,7 +289,7 @@ export default function TopBar({ onMenuClick }) {
                     <JobRow
                       key={job.job_id}
                       job={job}
-                      onViewInLibrary={() => handleViewInLibrary(job)}
+                      onViewInLibrary={() => { clearJob(job.job_id); setOpen(false); navigate('/library') }}
                       onClear={() => clearJob(job.job_id)}
                       onCancel={() => cancelJob(job.job_id)}
                     />
@@ -277,34 +300,22 @@ export default function TopBar({ onMenuClick }) {
           )}
         </div>
 
-        {/* Dark mode toggle */}
-        <button
-          onClick={toggle}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          style={{
-            width: 34, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: isDark ? '#00B6FF' : 'rgba(0,0,0,0.15)',
-            position: 'relative', transition: 'background 0.2s', padding: 0, flexShrink: 0,
-          }}
-        >
-          <span style={{
-            position: 'absolute', top: 3, width: 14, height: 14, borderRadius: '50%',
-            background: '#ffffff', transition: 'left 0.2s',
-            left: isDark ? 17 : 3,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 8, lineHeight: 1,
-          }}>
-            {isDark ? '🌙' : '☀️'}
-          </span>
-        </button>
+        {/* Theme toggle */}
+        <IconBtn onClick={toggle} title={isDark ? 'Light mode' : 'Dark mode'}>
+          {isDark
+            ? <Sun size={14} color="var(--cs-text-sub)" />
+            : <Moon size={14} color="var(--cs-text-sub)" />
+          }
+        </IconBtn>
 
         {/* Avatar */}
         <div style={{
-          width: 34, height: 34, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #08316F, #00B6FF)',
+          width: 32, height: 32, borderRadius: 9,
+          background: 'linear-gradient(135deg, #08316F 0%, #00B6FF 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: '0.5px',
+          color: '#fff', fontWeight: 700, fontSize: 11, letterSpacing: '0.5px',
           cursor: 'pointer', userSelect: 'none',
+          boxShadow: '0 2px 8px rgba(0,182,255,0.2)',
         }}>RC</div>
       </div>
     </header>
