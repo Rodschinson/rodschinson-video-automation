@@ -1,205 +1,289 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { PlusSquare, Library, CalendarDays, BarChart3, ExternalLink, Sun, Moon, Building2, Layers, Settings, LogOut, User } from 'lucide-react'
+import { PlusSquare, Library, CalendarDays, BarChart3, ExternalLink, Sun, Moon, Building2, Layers, Settings, LogOut, ChevronRight } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useMobile } from '../hooks/useMobile'
 
-const NAV = [
+const NAV_MAIN = [
   { to: '/',          icon: PlusSquare,   label: 'New Content' },
   { to: '/library',   icon: Library,      label: 'Library'     },
   { to: '/schedule',  icon: CalendarDays, label: 'Schedule'    },
   { to: '/analytics', icon: BarChart3,    label: 'Analytics'   },
-  { to: '/brands',     icon: Building2,    label: 'Brands'      },
-  { to: '/templates',  icon: Layers,       label: 'Templates'   },
+]
+const NAV_BRAND = [
+  { to: '/brands',    icon: Building2,    label: 'Brands'      },
+  { to: '/templates', icon: Layers,       label: 'Templates'   },
 ]
 
-function MetricoolLink() {
-  const [hover, setHover] = useState(false)
+// ── Shared styles ──────────────────────────────────────────────────────────────
+const S = {
+  sidebar: {
+    width: 'var(--cs-sidebar-w)',
+    minWidth: 'var(--cs-sidebar-w)',
+    background: 'var(--cs-sidebar-bg)',
+    borderRight: '1px solid var(--cs-sidebar-border)',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  // Aurora accent line at top
+  aurora: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+    background: 'linear-gradient(90deg, transparent 0%, #08316F 25%, #00B6FF 60%, #C8A96E 85%, transparent 100%)',
+    opacity: 0.7,
+    animation: 'aurora 4s ease-in-out infinite',
+  },
+}
+
+// ── Nav item ───────────────────────────────────────────────────────────────────
+function NavItem({ to, icon: Icon, label, onClick, end }) {
+  const [hov, setHov] = useState(false)
   return (
-    <a
-      href="https://app.metricool.com"
-      target="_blank"
-      rel="noopener noreferrer"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={({ isActive }) => ({
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
-        padding: '10px 20px',
+        gap: 10,
+        padding: '8px 14px',
+        margin: '1px 8px',
+        borderRadius: 8,
         textDecoration: 'none',
-        color: hover ? '#00B6FF' : 'var(--cs-text-sub)',
-        fontWeight: 400,
-        fontSize: 14,
-        borderLeft: '2px solid transparent',
-        background: hover ? 'rgba(0,182,255,0.06)' : 'transparent',
-        transition: 'color 0.15s, background 0.15s',
+        color: isActive
+          ? 'var(--cs-sidebar-active)'
+          : hov ? 'rgba(255,255,255,0.75)' : 'var(--cs-sidebar-text)',
+        fontWeight: isActive ? 600 : 400,
+        fontSize: 13.5,
+        background: isActive
+          ? 'var(--cs-sidebar-active-bg)'
+          : hov ? 'var(--cs-sidebar-hover)' : 'transparent',
+        transition: 'all 0.14s',
+        position: 'relative',
+        letterSpacing: '-0.1px',
+      })}
+    >
+      {({ isActive }) => (
+        <>
+          <span style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 18, height: 18, flexShrink: 0,
+            color: isActive ? '#00B6FF' : 'inherit',
+            transition: 'color 0.14s',
+          }}>
+            <Icon size={15} strokeWidth={isActive ? 2.2 : 1.7} />
+          </span>
+          <span style={{ flex: 1 }}>{label}</span>
+          {isActive && (
+            <span style={{
+              width: 4, height: 4, borderRadius: '50%',
+              background: '#00B6FF',
+              boxShadow: '0 0 6px #00B6FF',
+              flexShrink: 0,
+            }} />
+          )}
+        </>
+      )}
+    </NavLink>
+  )
+}
+
+// ── External link item ─────────────────────────────────────────────────────────
+function ExtItem({ href, label, accent }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 14px', margin: '1px 8px', borderRadius: 8,
+        textDecoration: 'none',
+        color: hov ? 'rgba(255,255,255,0.75)' : 'var(--cs-sidebar-text)',
+        fontSize: 13.5,
+        background: hov ? 'var(--cs-sidebar-hover)' : 'transparent',
+        transition: 'all 0.14s',
       }}
     >
-      {/* Metricool "M" mark */}
       <span style={{
-        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
-        background: hover ? '#00B6FF' : 'var(--cs-text-muted)',
+        width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+        background: hov ? accent : 'rgba(255,255,255,0.12)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: 1,
-        transition: 'background 0.15s',
+        color: '#fff', fontSize: 9, fontWeight: 800,
+        transition: 'background 0.14s',
       }}>M</span>
-      Metricool
-      <ExternalLink size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+      <span style={{ flex: 1 }}>{label}</span>
+      <ExternalLink size={11} style={{ opacity: 0.35 }} />
     </a>
   )
 }
 
+// ── Section label ──────────────────────────────────────────────────────────────
+function SectionLabel({ children }) {
+  return (
+    <div style={{
+      padding: '14px 22px 5px',
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '0.1em',
+      color: 'rgba(255,255,255,0.2)',
+      textTransform: 'uppercase',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+// ── Main sidebar content ───────────────────────────────────────────────────────
 function SidebarContent({ onClose }) {
   const { isDark, toggle } = useTheme()
   const { username, logout } = useAuth()
   const isMobile = useMobile()
 
   return (
-    <aside style={{
-      width: 220,
-      minWidth: 220,
-      background: 'var(--cs-surface)',
-      borderRight: '1px solid var(--cs-border)',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 0,
-      transition: 'background 0.25s',
-      height: '100%',
-      position: 'relative',
-    }}>
+    <aside style={S.sidebar}>
+
+      {/* Aurora top line */}
+      <div style={S.aurora} />
 
       {/* Brand header */}
       <div style={{
-        padding: '22px 20px 18px',
-        borderBottom: '1px solid var(--cs-border)',
-        background: 'linear-gradient(160deg, rgba(8,49,111,0.08) 0%, transparent 100%)',
+        padding: '20px 16px 16px',
+        borderBottom: '1px solid var(--cs-sidebar-border)',
         flexShrink: 0,
+        position: 'relative',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Logo mark */}
           <div style={{
-            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-            background: 'linear-gradient(135deg, #08316F 0%, #00B6FF 100%)',
+            width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+            background: 'linear-gradient(145deg, #0a3d8f 0%, #00B6FF 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,182,255,0.35)',
+            boxShadow: '0 0 0 1px rgba(0,182,255,0.3), 0 4px 12px rgba(0,182,255,0.25)',
           }}>
-            <span style={{ color: '#fff', fontWeight: 800, fontSize: 13, letterSpacing: '-0.5px' }}>R</span>
+            <span style={{ color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '-0.5px' }}>R</span>
           </div>
           <div>
-            <div style={{ color: 'var(--cs-text)', fontWeight: 700, fontSize: 13, lineHeight: 1.2, letterSpacing: '-0.2px' }}>
+            <div style={{
+              color: 'rgba(255,255,255,0.9)', fontWeight: 700, fontSize: 13.5,
+              letterSpacing: '-0.3px', lineHeight: 1.2,
+            }}>
               Rodschinson
             </div>
-            <div style={{ color: 'var(--cs-text-muted)', fontSize: 10, fontWeight: 500, letterSpacing: '0.04em' }}>
+            <div style={{
+              fontSize: 9.5, fontWeight: 600, letterSpacing: '0.12em',
+              color: 'rgba(255,255,255,0.25)', marginTop: 1,
+            }}>
               CONTENT STUDIO
             </div>
           </div>
+
+          {isMobile && (
+            <button
+              onClick={onClose}
+              style={{
+                marginLeft: 'auto', width: 24, height: 24, borderRadius: 6,
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.06)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'rgba(255,255,255,0.5)', fontSize: 14,
+              }}
+            >×</button>
+          )}
         </div>
-        {isMobile && (
-          <button
-            onClick={onClose}
-            style={{
-              position: 'absolute', top: 16, right: 14,
-              width: 26, height: 26, borderRadius: 6,
-              border: '1px solid var(--cs-border)',
-              background: 'var(--cs-hover)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--cs-text-sub)', fontSize: 14, lineHeight: 1,
-            }}
-          >×</button>
-        )}
       </div>
 
-      {/* Nav section */}
-      <div style={{ padding: '10px 0', flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {NAV.map(({ to, icon: Icon, label }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={to === '/'}
-          onClick={isMobile ? onClose : undefined}
-          style={({ isActive }) => ({
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            padding: '10px 20px',
-            textDecoration: 'none',
-            color: isActive ? '#00B6FF' : 'var(--cs-text-sub)',
-            fontWeight: isActive ? 600 : 400,
-            fontSize: 14,
-            borderLeft: isActive ? '2px solid #00B6FF' : '2px solid transparent',
-            background: isActive ? 'rgba(0,182,255,0.06)' : 'transparent',
-            transition: 'color 0.15s, background 0.15s',
-          })}
-        >
-          <Icon size={18} />
-          {label}
-        </NavLink>
-      ))}
+      {/* Navigation */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 8, overflowY: 'auto' }}>
 
-      {/* Divider */}
-      <div style={{ margin: '6px 20px', borderTop: '1px solid var(--cs-border)' }} />
+        <SectionLabel>Workspace</SectionLabel>
+        {NAV_MAIN.map(({ to, icon, label }) => (
+          <NavItem key={to} to={to} icon={icon} label={label} end={to === '/'} onClick={isMobile ? onClose : undefined} />
+        ))}
 
-      <MetricoolLink />
+        <SectionLabel>Brand</SectionLabel>
+        {NAV_BRAND.map(({ to, icon, label }) => (
+          <NavItem key={to} to={to} icon={icon} label={label} onClick={isMobile ? onClose : undefined} />
+        ))}
+
+        <SectionLabel>Integrations</SectionLabel>
+        <ExtItem href="https://app.metricool.com" label="Metricool" accent="#00B6FF" />
       </div>
 
-      {/* Bottom: Settings + user + theme */}
-      <div style={{ borderTop: '1px solid var(--cs-border)', padding: '8px 0 4px' }}>
-        {/* Settings link */}
-        <NavLink
-          to="/settings"
-          onClick={isMobile ? onClose : undefined}
-          style={({ isActive }) => ({
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '9px 20px', textDecoration: 'none',
-            color: isActive ? '#00B6FF' : 'var(--cs-text-sub)',
-            fontWeight: isActive ? 600 : 400, fontSize: 13,
-            borderLeft: isActive ? '2px solid #00B6FF' : '2px solid transparent',
-            background: isActive ? 'rgba(0,182,255,0.06)' : 'transparent',
-            transition: 'color 0.15s, background 0.15s',
-          })}
-        >
-          <Settings size={16} />
-          Settings
-        </NavLink>
+      {/* Bottom */}
+      <div style={{ borderTop: '1px solid var(--cs-sidebar-border)', paddingBottom: 4 }}>
+
+        {/* Settings */}
+        <NavItem to="/settings" icon={Settings} label="Settings" onClick={isMobile ? onClose : undefined} />
+
+        {/* Divider */}
+        <div style={{ margin: '4px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }} />
 
         {/* User row */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '8px 20px', color: 'var(--cs-text-muted)', fontSize: 12,
+          display: 'flex', alignItems: 'center', gap: 9,
+          padding: '8px 16px', margin: '1px 8px',
         }}>
-          <User size={14} />
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {username || 'admin'}
-          </span>
+          <div style={{
+            width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+            background: 'linear-gradient(135deg, #08316F, #00B6FF)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontWeight: 700, fontSize: 10, letterSpacing: '0.5px',
+          }}>
+            {(username || 'A').slice(0, 2).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 500,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {username || 'admin'}
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>Administrator</div>
+          </div>
           <button
             onClick={logout}
             title="Sign out"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--cs-text-muted)', padding: 2, display: 'flex',
-              borderRadius: 4, transition: 'color 0.15s',
+              color: 'rgba(255,255,255,0.25)', padding: 4, display: 'flex',
+              borderRadius: 5, transition: 'color 0.15s',
+              flexShrink: 0,
             }}
             onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--cs-text-muted)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
           >
-            <LogOut size={13} />
+            <LogOut size={12} />
           </button>
         </div>
 
         {/* Theme toggle */}
         <button
           onClick={toggle}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '8px 20px', border: 'none', cursor: 'pointer',
-            background: 'transparent', width: '100%', textAlign: 'left',
-            color: 'var(--cs-text-muted)', fontSize: 12,
-            transition: 'color 0.15s',
+            display: 'flex', alignItems: 'center', gap: 9,
+            padding: '7px 16px', margin: '1px 8px', borderRadius: 8,
+            border: 'none', cursor: 'pointer', width: 'calc(100% - 16px)',
+            background: 'transparent', textAlign: 'left',
+            color: 'rgba(255,255,255,0.3)', fontSize: 12,
+            transition: 'background 0.14s, color 0.14s',
           }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; }}
         >
-          {isDark ? <Sun size={14} /> : <Moon size={14} />}
+          {isDark
+            ? <Sun size={13} style={{ flexShrink: 0 }} />
+            : <Moon size={13} style={{ flexShrink: 0 }} />
+          }
           {isDark ? 'Light mode' : 'Dark mode'}
         </button>
       </div>
@@ -207,34 +291,30 @@ function SidebarContent({ onClose }) {
   )
 }
 
+// ── Export ─────────────────────────────────────────────────────────────────────
 export default function Sidebar({ mobileOpen, onClose }) {
   const isMobile = useMobile()
 
-  if (!isMobile) {
-    return <SidebarContent onClose={onClose} />
-  }
+  if (!isMobile) return <SidebarContent onClose={onClose} />
 
-  // Mobile: render as slide-out drawer with backdrop
   return (
     <>
-      {/* Backdrop */}
       {mobileOpen && (
         <div
           onClick={onClose}
           style={{
             position: 'fixed', inset: 0, zIndex: 50,
-            background: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(2px)',
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
             animation: 'fadein 0.15s ease',
           }}
         />
       )}
-      {/* Drawer */}
       <div style={{
         position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 51,
         transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
         transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
-        boxShadow: mobileOpen ? '4px 0 24px rgba(0,0,0,0.25)' : 'none',
+        boxShadow: mobileOpen ? '6px 0 40px rgba(0,0,0,0.4)' : 'none',
       }}>
         <SidebarContent onClose={onClose} />
       </div>

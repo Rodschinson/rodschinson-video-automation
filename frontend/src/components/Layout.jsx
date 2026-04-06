@@ -11,7 +11,11 @@ export default function Layout() {
       <TopBar onMenuClick={() => setMobileOpen(o => !o)} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
-        <main style={{ flex: 1, overflow: 'auto', padding: '24px 32px' }}>
+        <main style={{
+          flex: 1, overflow: 'auto',
+          padding: '28px 36px',
+          scrollbarWidth: 'thin',
+        }}>
           <Outlet />
         </main>
       </div>
