@@ -1561,6 +1561,160 @@ Rules:
             # Store thumbnail path in job for library preview
             job["thumbnail"] = str(thumb_path)
 
+        # ── Property Portfolio (multi-page PDF) ──────────────────────────────
+        elif content_type == "property_portfolio":
+            _job_update(job, status="running", step="Loading properties", progress=5)
+            await _save_job(job)
+
+            # Load all properties from cache
+            props_path = OUTPUT / "properties.json"
+            all_properties: list[dict] = []
+            if props_path.exists():
+                async with aiofiles.open(props_path) as f:
+                    all_properties = json.loads(await f.read())
+
+            if not all_properties:
+                raise RuntimeError("No properties found. Please sync from Odoo first.")
+
+            # Filter to selected property IDs (if provided), else all
+            selected_ids = data.get("selected_property_ids")
+            if selected_ids and isinstance(selected_ids, list) and len(selected_ids) > 0:
+                id_set = set(selected_ids)
+                all_properties = [p for p in all_properties if p.get("odoo_id") in id_set]
+                if not all_properties:
+                    raise RuntimeError("None of the selected properties were found.")
+
+            # Group properties by asset type
+            from collections import OrderedDict
+            type_groups: dict[str, list[dict]] = {}
+            for p in all_properties:
+                at = p.get("asset_type") or "other"
+                type_groups.setdefault(at, []).append(p)
+
+            # Build sections (sorted by label)
+            sections = []
+            for at in sorted(type_groups.keys(), key=lambda k: ASSET_TYPE_MAP.get(k, {}).get("label", k)):
+                info = ASSET_TYPE_MAP.get(at, {"icon": "\U0001F3E2", "label": at.title(), "template": "teaser_building"})
+                sections.append({
+                    "asset_type": at,
+                    "label": info["label"],
+                    "icon": info["icon"],
+                    "properties": type_groups[at],
+                })
+
+            total_count = sum(len(s["properties"]) for s in sections)
+
+            _job_update(job, status="running", step="Generating portfolio copy", progress=15)
+            await _save_job(job)
+
+            # Use Claude to generate portfolio metadata (title, subtitle, summary)
+            api_key = os.getenv("ANTHROPIC_API_KEY", "")
+            lang_label = {"EN": "English", "FR": "French", "NL": "Dutch"}.get(language, "English")
+
+            type_summary = ", ".join(f"{s['label']} ({len(s['properties'])})" for s in sections)
+            portfolio_prompt = f"""You are preparing a professional property investment portfolio document for {brand_display}.
+
+PORTFOLIO CONTENTS: {total_count} properties across {len(sections)} asset types: {type_summary}
+
+LANGUAGE: {lang_label}
+
+Generate a JSON object with:
+{{
+  "title": "Portfolio title (max 50 chars, in {lang_label})",
+  "subtitle": "One-line subtitle (in {lang_label})",
+  "summary_title": "Summary section title (in {lang_label})",
+  "disclaimer": "Legal disclaimer (2-3 sentences, in {lang_label})"
+}}
+
+Rules:
+- Professional, institutional tone
+- All text in {lang_label}
+- Return ONLY valid JSON, no markdown
+"""
+            async with _claude_semaphore:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                        json={"model": "claude-sonnet-4-6", "max_tokens": 500,
+                              "messages": [{"role": "user", "content": portfolio_prompt}]},
+                        timeout=60,
+                    )
+                    resp.raise_for_status()
+
+            portfolio_meta = _parse_json(resp.json()["content"][0]["text"])
+
+            # Build portfolio data JSON
+            from datetime import datetime
+            date_str = datetime.now().strftime("%B %Y")
+
+            # Summary stats
+            total_value = sum(p.get("price_raw", 0) or 0 for p in all_properties)
+            summary_stats = [
+                {"label": "Total Properties", "value": str(total_count)},
+                {"label": "Asset Types", "value": str(len(sections))},
+            ]
+            if total_value > 0:
+                if total_value >= 1_000_000_000:
+                    fv = f"\u20ac{total_value / 1_000_000_000:.1f}B"
+                elif total_value >= 1_000_000:
+                    fv = f"\u20ac{total_value / 1_000_000:.1f}M"
+                else:
+                    fv = f"\u20ac{total_value:,.0f}"
+                summary_stats.append({"label": "Total Portfolio Value", "value": fv})
+
+            # Add per-type counts
+            for s in sections[:4]:
+                summary_stats.append({"label": s["label"], "value": str(len(s["properties"]))})
+
+            portfolio_json = {
+                "title": portfolio_meta.get("title", "Property Portfolio"),
+                "subtitle": portfolio_meta.get("subtitle", "Exclusive Investment Opportunities"),
+                "date": date_str,
+                "disclaimer": portfolio_meta.get("disclaimer", "This document is confidential and for informational purposes only."),
+                "sections": sections,
+                "summary": {
+                    "title": portfolio_meta.get("summary_title", "Portfolio Summary"),
+                    "total_properties": total_count,
+                    "total_types": len(sections),
+                    "stats": summary_stats,
+                },
+            }
+
+            # Write portfolio JSON
+            portfolio_path = TEASER_DIR / f"{job_id[:8]}_portfolio.json"
+            async with aiofiles.open(portfolio_path, "w") as f:
+                await f.write(json.dumps(portfolio_json, indent=2, ensure_ascii=False))
+
+            _job_update(job, status="running", step="Rendering PDF", progress=50)
+            await _save_job(job)
+
+            # Render via portfolio_renderer.js
+            pdf_path   = TEASER_DIR / f"{job_id[:8]}_portfolio.pdf"
+            thumb_path = TEASER_DIR / f"{job_id[:8]}_portfolio_thumb.png"
+
+            render_cmd = [
+                "node", str(PUPPET / "portfolio_renderer.js"),
+                "--script", str(portfolio_path),
+                "--output-pdf", str(pdf_path),
+                "--output-thumb", str(thumb_path),
+            ]
+            brand_data = await _brand_lookup(brand_arg)
+            if brand_data:
+                render_cmd += [
+                    "--brand-name", brand_data.get("name", "Rodschinson"),
+                    "--brand-primary", brand_data.get("primaryColor", "#08316F"),
+                    "--brand-accent", brand_data.get("accentColor", "#C8A96E"),
+                ]
+
+            code, out, err = await _run(render_cmd, cwd=PUPPET, timeout=120, job_id=job_id)
+            if code != 0:
+                raise RuntimeError(f"Portfolio render failed (exit {code})\n{err[-600:]}")
+
+            output_file = str(pdf_path)
+            script_path = portfolio_path
+            job["thumbnail"] = str(thumb_path)
+
         else:
             raise RuntimeError(f"Unknown content_type: {content_type!r}")
 
