@@ -38,7 +38,8 @@ html, body { width: 794px; overflow-x: hidden; background: var(--white); font-fa
 .content-page { padding: 48px 52px 60px; display: flex; flex-direction: column; background: var(--white); }
 .page-title { font-family: var(--heading); font-weight: 800; font-size: 22px; color: var(--navy); margin-bottom: 4px; }
 .page-rule { width: 60px; height: 3px; background: linear-gradient(90deg, var(--sky), var(--navy)); border-radius: 2px; margin-bottom: 24px; }
-.section-label { font-family: var(--heading); font-weight: 700; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--sky); margin-bottom: 10px; }
+.section-label { font-family: var(--heading); font-weight: 700; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--sky); margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }
+.section-block { break-inside: avoid; page-break-inside: avoid; }
 .narrative { font-family: var(--body); font-size: 11px; line-height: 1.7; color: rgba(8,49,111,0.75); margin-bottom: 16px; }
 .narrative p { margin-bottom: 8px; }
 
@@ -238,11 +239,11 @@ window.loadValuation = function(data, brandName) {
 
   // Key metrics
   if (es.key_metrics && es.key_metrics.length) {
-    esHtml += '<div class="section-label">Key Metrics</div><div class="metrics-grid">';
+    esHtml += '<div class="section-block"><div class="section-label">Key Metrics</div><div class="metrics-grid">';
     es.key_metrics.forEach(function(m) {
       esHtml += '<div class="metric"><div class="metric-label">' + escapeHtml(m.label) + '</div><div class="metric-value">' + escapeHtml(m.value) + '</div></div>';
     });
-    esHtml += '</div>';
+    esHtml += '</div></div>';
   }
   esHtml += makeFooter(footerBrand, 'Executive Summary', pageNum) + '</div>';
   container.innerHTML += esHtml;
@@ -265,20 +266,20 @@ window.loadValuation = function(data, brandName) {
 
   // Characteristics
   if (po.characteristics && po.characteristics.length) {
-    poHtml += '<div class="section-label">Key Characteristics</div><div class="chars-grid">';
+    poHtml += '<div class="section-block"><div class="section-label">Key Characteristics</div><div class="chars-grid">';
     po.characteristics.forEach(function(c) {
       poHtml += '<div class="char-item"><span class="char-label">' + escapeHtml(c.label) + '</span><span class="char-value">' + escapeHtml(c.value) + '</span></div>';
     });
-    poHtml += '</div>';
+    poHtml += '</div></div>';
   }
 
   // Operational metrics
   if (po.operational_metrics && po.operational_metrics.length) {
-    poHtml += '<div class="section-label">Operational Metrics</div><div class="metrics-grid">';
+    poHtml += '<div class="section-block"><div class="section-label">Operational Metrics</div><div class="metrics-grid">';
     po.operational_metrics.forEach(function(m) {
       poHtml += '<div class="metric"><div class="metric-label">' + escapeHtml(m.label) + '</div><div class="metric-value">' + escapeHtml(m.value) + '</div></div>';
     });
-    poHtml += '</div>';
+    poHtml += '</div></div>';
   }
   poHtml += makeFooter(footerBrand, 'Property Overview', pageNum) + '</div>';
   container.innerHTML += poHtml;
@@ -299,20 +300,20 @@ window.loadValuation = function(data, brandName) {
 
     // Assumptions
     if (m.assumptions && m.assumptions.length) {
-      mHtml += '<div class="section-label">Assumptions</div><table class="assumptions-table"><thead><tr><th>Parameter</th><th>Value</th><th>Basis</th></tr></thead><tbody>';
+      mHtml += '<div class="section-block"><div class="section-label">Assumptions</div><table class="assumptions-table"><thead><tr><th>Parameter</th><th>Value</th><th>Basis</th></tr></thead><tbody>';
       m.assumptions.forEach(function(a) {
         mHtml += '<tr><td>' + escapeHtml(a.parameter) + '</td><td>' + escapeHtml(a.value) + '</td><td>' + escapeHtml(a.basis || '') + '</td></tr>';
       });
-      mHtml += '</tbody></table>';
+      mHtml += '</tbody></table></div>';
     }
 
     // Calculation steps
     if (m.calculation_steps && m.calculation_steps.length) {
-      mHtml += '<div class="section-label">Calculation</div><div class="calc-steps">';
+      mHtml += '<div class="section-block"><div class="section-label">Calculation</div><div class="calc-steps">';
       m.calculation_steps.forEach(function(s) {
         mHtml += '<div class="calc-step"><span class="calc-step-label">' + escapeHtml(s.step) + '</span><span class="calc-step-value">' + escapeHtml(s.value) + '</span></div>';
       });
-      mHtml += '</div>';
+      mHtml += '</div></div>';
     }
 
     // Result
@@ -332,19 +333,19 @@ window.loadValuation = function(data, brandName) {
     if (mc.narrative) mcHtml += '<div class="narrative"><p>' + escapeHtml(mc.narrative) + '</p></div>';
 
     if (mc.indicators && mc.indicators.length) {
-      mcHtml += '<div class="section-label">Market Indicators</div><div class="indicators-grid">';
+      mcHtml += '<div class="section-block"><div class="section-label">Market Indicators</div><div class="indicators-grid">';
       mc.indicators.forEach(function(ind) {
         mcHtml += '<div class="indicator"><div class="indicator-label">' + escapeHtml(ind.label) + '</div><div class="indicator-value">' + escapeHtml(ind.value) + '</div><div class="indicator-trend ' + trendClass(ind.trend) + '">' + trendArrow(ind.trend) + ' ' + escapeHtml(ind.trend || 'Stable') + '</div></div>';
       });
-      mcHtml += '</div>';
+      mcHtml += '</div></div>';
     }
 
     if (mc.comparables && mc.comparables.length) {
-      mcHtml += '<div class="section-label">Comparable Transactions</div><table class="assumptions-table"><thead><tr><th>Description</th><th>Value</th></tr></thead><tbody>';
+      mcHtml += '<div class="section-block"><div class="section-label">Comparable Transactions</div><table class="assumptions-table"><thead><tr><th>Description</th><th>Value</th></tr></thead><tbody>';
       mc.comparables.forEach(function(c) {
         mcHtml += '<tr><td>' + escapeHtml(c.description) + '</td><td>' + escapeHtml(c.value) + '</td></tr>';
       });
-      mcHtml += '</tbody></table>';
+      mcHtml += '</tbody></table></div>';
     }
     mcHtml += makeFooter(footerBrand, 'Market Context', pageNum) + '</div>';
     container.innerHTML += mcHtml;
@@ -358,19 +359,19 @@ window.loadValuation = function(data, brandName) {
     if (ra.narrative) raHtml += '<div class="narrative"><p>' + escapeHtml(ra.narrative) + '</p></div>';
 
     if (ra.risks && ra.risks.length) {
-      raHtml += '<div class="section-label">Risk Matrix</div><table class="risk-table"><thead><tr><th>Risk Factor</th><th>Severity</th><th>Likelihood</th><th>Mitigation</th></tr></thead><tbody>';
+      raHtml += '<div class="section-block"><div class="section-label">Risk Matrix</div><table class="risk-table"><thead><tr><th>Risk Factor</th><th>Severity</th><th>Likelihood</th><th>Mitigation</th></tr></thead><tbody>';
       ra.risks.forEach(function(r) {
         raHtml += '<tr><td>' + escapeHtml(r.factor) + '</td><td><span class="risk-badge ' + riskClass(r.severity) + '">' + escapeHtml(r.severity) + '</span></td><td><span class="risk-badge ' + riskClass(r.likelihood) + '">' + escapeHtml(r.likelihood) + '</span></td><td>' + escapeHtml(r.mitigation || '') + '</td></tr>';
       });
-      raHtml += '</tbody></table>';
+      raHtml += '</tbody></table></div>';
     }
 
     if (ra.sensitivity && ra.sensitivity.length) {
-      raHtml += '<div class="section-label">Sensitivity Analysis</div><div class="sensitivity-grid">';
+      raHtml += '<div class="section-block"><div class="section-label">Sensitivity Analysis</div><div class="sensitivity-grid">';
       ra.sensitivity.forEach(function(s) {
         raHtml += '<div class="sensitivity-item"><div class="sensitivity-scenario">' + escapeHtml(s.scenario) + '</div><div class="sensitivity-impact">' + escapeHtml(s.impact) + '</div></div>';
       });
-      raHtml += '</div>';
+      raHtml += '</div></div>';
     }
     raHtml += makeFooter(footerBrand, 'Risk Assessment', pageNum) + '</div>';
     container.innerHTML += raHtml;
@@ -385,15 +386,15 @@ window.loadValuation = function(data, brandName) {
   concHtml += '</div>';
 
   if (conc.next_steps && conc.next_steps.length) {
-    concHtml += '<div class="section-label">Recommended Next Steps</div><ul class="next-steps">';
+    concHtml += '<div class="section-block"><div class="section-label">Recommended Next Steps</div><ul class="next-steps">';
     conc.next_steps.forEach(function(s, i) {
       concHtml += '<li data-num="' + (i + 1) + '.">' + escapeHtml(s) + '</li>';
     });
-    concHtml += '</ul>';
+    concHtml += '</ul></div>';
   }
 
   if (conc.disclaimer) {
-    concHtml += '<div class="section-label">Disclaimer</div><div class="disclaimer-box">' + escapeHtml(conc.disclaimer) + '</div>';
+    concHtml += '<div class="section-block"><div class="section-label">Disclaimer</div><div class="disclaimer-box">' + escapeHtml(conc.disclaimer) + '</div></div>';
   }
   concHtml += makeFooter(footerBrand, 'Conclusion', pageNum) + '</div>';
   container.innerHTML += concHtml;
