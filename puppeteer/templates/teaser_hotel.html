@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=794, height=1123">
+<title>Teaser — Hotel Investment</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:  #08316F;
+  --gold:  #C8A96E;
+  --bg:    #F8F5F0;
+  --ink:   #0D1F3C;
+  --muted: rgba(8,49,111,0.42);
+  --faint: rgba(8,49,111,0.08);
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --sans:  'DM Sans', sans-serif;
+}
+
+html, body {
+  width: 794px;
+  height: 1123px;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--sans);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── FAINT GRID OVERLAY ── */
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(8,49,111,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(8,49,111,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── CORNER ACCENTS ── */
+.corner-accent {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+  z-index: 2;
+}
+.corner-accent.tl { top: 20px; left: 20px; }
+.corner-accent.tr { top: 20px; right: 20px; transform: scaleX(-1); }
+.corner-accent.bl { bottom: 20px; left: 20px; transform: scaleY(-1); }
+.corner-accent.br { bottom: 20px; right: 20px; transform: scale(-1,-1); }
+
+/* ── CONTENT WRAPPER ── */
+.page {
+  position: relative;
+  width: 794px;
+  height: 1123px;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+/* ── BRAND HEADER ── */
+.brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 48px;
+  height: 56px;
+  flex-shrink: 0;
+}
+.brand-name {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--navy);
+  opacity: 0.65;
+}
+.brand-memo {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* ── TOP RULE ── */
+.top-rule {
+  flex-shrink: 0;
+  height: 4px;
+  margin: 0 48px;
+  background: linear-gradient(90deg, var(--gold) 0%, var(--navy) 55%, transparent 100%);
+}
+
+/* ── MAIN CONTENT AREA ── */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 48px 0;
+  overflow: hidden;
+}
+
+/* ── HEADLINE ── */
+.headline {
+  font-family: var(--serif);
+  font-size: 38px;
+  font-weight: 600;
+  line-height: 1.12;
+  color: var(--navy);
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+
+/* ── SUBHEADLINE ── */
+.subheadline {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+/* ── HERO SVG ── */
+.hero-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+  flex-shrink: 0;
+  margin-bottom: 22px;
+}
+.hero-area svg {
+  max-height: 170px;
+  width: auto;
+}
+
+/* ── METRICS GRID ── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 10px;
+  margin-bottom: 22px;
+  flex-shrink: 0;
+}
+.metric-card {
+  background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(200,169,110,0.2);
+  border-radius: 4px;
+  padding: 14px 16px 12px;
+  text-align: center;
+}
+.metric-label {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.metric-value {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--navy);
+  line-height: 1.1;
+}
+
+/* ── HIGHLIGHTS ── */
+.highlights-section {
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+.section-title {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--faint), transparent);
+}
+.highlights-list {
+  list-style: none;
+  padding: 0;
+}
+.highlights-list li {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.55;
+  padding: 4px 0 4px 18px;
+  position: relative;
+}
+.highlights-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--gold);
+}
+
+/* ── DESCRIPTION / OVERVIEW ── */
+.overview-section {
+  flex: 1;
+  overflow: hidden;
+  margin-bottom: 0;
+}
+.overview-body {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(13,31,60,0.72);
+  line-height: 1.7;
+}
+.overview-body p {
+  margin-bottom: 8px;
+}
+
+/* ── FOOTER ── */
+.footer {
+  flex-shrink: 0;
+  padding: 0 48px 22px;
+}
+.footer-rule {
+  height: 2px;
+  margin-bottom: 12px;
+  background: linear-gradient(90deg, var(--gold) 0%, transparent 100%);
+}
+.footer-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.footer-brand {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--navy);
+  opacity: 0.45;
+}
+.footer-disclaimer {
+  font-family: var(--sans);
+  font-size: 7.5px;
+  font-weight: 400;
+  color: var(--muted);
+  max-width: 420px;
+  text-align: right;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+
+<!-- Grid overlay -->
+<div class="grid-overlay"></div>
+
+<!-- Corner accents -->
+<svg class="corner-accent tl" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 48 L0 0 L48 0" stroke="#C8A96E" stroke-width="1.5" fill="none" opacity="0.3"/>
+  <path d="M0 24 L0 0 L24 0" stroke="#08316F" stroke-width="0.75" fill="none" opacity="0.15"/>
+</svg>
+<svg class="corner-accent tr" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 48 L0 0 L48 0" stroke="#C8A96E" stroke-width="1.5" fill="none" opacity="0.3"/>
+  <path d="M0 24 L0 0 L24 0" stroke="#08316F" stroke-width="0.75" fill="none" opacity="0.15"/>
+</svg>
+<svg class="corner-accent bl" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 48 L0 0 L48 0" stroke="#C8A96E" stroke-width="1.5" fill="none" opacity="0.3"/>
+  <path d="M0 24 L0 0 L24 0" stroke="#08316F" stroke-width="0.75" fill="none" opacity="0.15"/>
+</svg>
+<svg class="corner-accent br" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M0 48 L0 0 L48 0" stroke="#C8A96E" stroke-width="1.5" fill="none" opacity="0.3"/>
+  <path d="M0 24 L0 0 L24 0" stroke="#08316F" stroke-width="0.75" fill="none" opacity="0.15"/>
+</svg>
+
+<!-- Page -->
+<div class="page">
+
+  <!-- Brand header -->
+  <div class="brand-header">
+    <div class="brand-name" id="brand-name">RODSCHINSON</div>
+    <div class="brand-memo">INVESTMENT MEMORANDUM</div>
+  </div>
+
+  <!-- Top rule -->
+  <div class="top-rule"></div>
+
+  <!-- Main content -->
+  <div class="content">
+
+    <!-- Headline -->
+    <h1 class="headline" id="headline">Luxury Boutique Hotel</h1>
+
+    <!-- Subheadline -->
+    <p class="subheadline" id="subheadline">Prime Location &mdash; Exclusive Opportunity</p>
+
+    <!-- Hotel SVG hero -->
+    <div class="hero-area">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 170" fill="#08316F" fill-opacity="0.07">
+        <!-- Main building body -->
+        <rect x="60" y="30" width="400" height="130" rx="3"/>
+        <!-- Central tower / penthouse -->
+        <rect x="210" y="8" width="100" height="22" rx="2"/>
+        <rect x="240" y="0" width="40" height="8" rx="1"/>
+        <!-- Entrance awning -->
+        <path d="M210 160 L215 140 L305 140 L310 160 Z"/>
+        <rect x="218" y="142" width="84" height="18" rx="1"/>
+        <!-- Awning stripes -->
+        <rect x="218" y="140" width="84" height="3" rx="0.5" fill-opacity="0.12" fill="#08316F"/>
+        <!-- Entrance doors -->
+        <rect x="245" y="146" width="14" height="14" rx="1" fill="#08316F" fill-opacity="0.04"/>
+        <rect x="261" y="146" width="14" height="14" rx="1" fill="#08316F" fill-opacity="0.04"/>
+        <!-- Windows row 1 (top) -->
+        <rect x="90"  y="40" width="18" height="22" rx="1.5"/>
+        <rect x="118" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="146" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="174" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="228" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="256" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="288" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="328" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="356" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="384" y="40" width="18" height="22" rx="1.5"/>
+        <rect x="412" y="40" width="18" height="22" rx="1.5"/>
+        <!-- Windows row 2 -->
+        <rect x="90"  y="72" width="18" height="22" rx="1.5"/>
+        <rect x="118" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="146" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="174" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="228" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="256" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="288" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="328" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="356" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="384" y="72" width="18" height="22" rx="1.5"/>
+        <rect x="412" y="72" width="18" height="22" rx="1.5"/>
+        <!-- Windows row 3 -->
+        <rect x="90"  y="104" width="18" height="22" rx="1.5"/>
+        <rect x="118" y="104" width="18" height="22" rx="1.5"/>
+        <rect x="146" y="104" width="18" height="22" rx="1.5"/>
+        <rect x="174" y="104" width="18" height="22" rx="1.5"/>
+        <rect x="328" y="104" width="18" height="22" rx="1.5"/>
+        <rect x="356" y="104" width="18" height="22" rx="1.5"/>
+        <rect x="384" y="104" width="18" height="22" rx="1.5"/>
+        <rect x="412" y="104" width="18" height="22" rx="1.5"/>
+        <!-- Concierge bell icon (bottom-right of building) -->
+        <g transform="translate(448, 128)">
+          <!-- Bell body -->
+          <ellipse cx="16" cy="26" rx="16" ry="6"/>
+          <path d="M4 26 Q4 10 16 6 Q28 10 28 26"/>
+          <!-- Bell handle -->
+          <circle cx="16" cy="4" r="3" fill="none" stroke="#08316F" stroke-width="1.5" stroke-opacity="0.07"/>
+          <!-- Bell button on top -->
+          <circle cx="16" cy="4" r="1.2"/>
+        </g>
+        <!-- Star rating dots -->
+        <circle cx="237" cy="4" r="2.5"/>
+        <circle cx="248" cy="4" r="2.5"/>
+        <circle cx="259" cy="4" r="2.5"/>
+        <circle cx="270" cy="4" r="2.5"/>
+        <circle cx="281" cy="4" r="2.5"/>
+        <!-- Left wing decorative pillar -->
+        <rect x="62" y="30" width="4" height="130" rx="1" fill-opacity="0.03" fill="#08316F"/>
+        <!-- Right wing decorative pillar -->
+        <rect x="454" y="30" width="4" height="130" rx="1" fill-opacity="0.03" fill="#08316F"/>
+        <!-- Ground line -->
+        <rect x="40" y="160" width="440" height="1.5" rx="0.75"/>
+        <!-- Decorative flag pole on top -->
+        <rect x="258" y="-6" width="1.5" height="8" rx="0.5"/>
+        <path d="M259.5 -6 L268 -3 L259.5 0 Z"/>
+      </svg>
+    </div>
+
+    <!-- Metrics grid -->
+    <div class="metrics-grid" id="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Asking Price</div>
+        <div class="metric-value">&mdash;</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Rooms</div>
+        <div class="metric-value">&mdash;</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Star Rating</div>
+        <div class="metric-value">&mdash;</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Occupancy</div>
+        <div class="metric-value">&mdash;</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">RevPAR</div>
+        <div class="metric-value">&mdash;</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Net Yield</div>
+        <div class="metric-value">&mdash;</div>
+      </div>
+    </div>
+
+    <!-- Highlights -->
+    <div class="highlights-section">
+      <div class="section-title">KEY HIGHLIGHTS</div>
+      <ul class="highlights-list" id="highlights-list">
+        <li>Premium hospitality asset in prime location</li>
+        <li>Strong year-round occupancy</li>
+        <li>Significant value-add potential</li>
+      </ul>
+    </div>
+
+    <!-- Overview -->
+    <div class="overview-section">
+      <div class="section-title">OVERVIEW</div>
+      <div class="overview-body" id="overview-body">
+        <p>A distinguished hotel property offering exceptional investment fundamentals and upside potential in a sought-after hospitality market.</p>
+      </div>
+    </div>
+
+  </div><!-- .content -->
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-rule"></div>
+    <div class="footer-inner">
+      <div class="footer-brand" id="footer-brand">RODSCHINSON</div>
+      <div class="footer-disclaimer" id="footer-disclaimer">This document is for informational purposes only and does not constitute an offer or solicitation. All figures are indicative and subject to verification.</div>
+    </div>
+  </div>
+
+</div><!-- .page -->
+
+<script>
+(function(){
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /**
+   * loadTeaser(data, brandName)
+   *
+   * data fields:
+   *   headline        — main property title
+   *   subheadline     — location / tagline
+   *   asset_type_label— e.g. "4-Star Hotel"
+   *   metrics[]       — array of { label, value } (up to 6)
+   *   highlights[]    — array of strings
+   *   description     — one or more paragraphs (string, newlines become <p>)
+   *   disclaimer      — footer disclaimer text
+   *
+   * brandName — brand display name (top-left + footer)
+   */
+  window.loadTeaser = function(data, brandName) {
+    data = data || {};
+
+    // Brand
+    if (brandName) {
+      var bn = esc(brandName).toUpperCase();
+      document.getElementById('brand-name').textContent = bn;
+      document.getElementById('footer-brand').textContent = bn;
+    }
+
+    // Headline
+    if (data.headline) {
+      document.getElementById('headline').textContent = data.headline;
+    }
+
+    // Subheadline
+    if (data.subheadline) {
+      var subEl = document.getElementById('subheadline');
+      var sub = data.subheadline;
+      if (data.asset_type_label) {
+        sub = data.asset_type_label + ' \u2014 ' + sub;
+      }
+      subEl.innerHTML = esc(sub);
+    } else if (data.asset_type_label) {
+      document.getElementById('subheadline').textContent = data.asset_type_label;
+    }
+
+    // Metrics
+    if (data.metrics && data.metrics.length) {
+      var grid = document.getElementById('metrics-grid');
+      var html = '';
+      var count = Math.min(data.metrics.length, 6);
+      for (var i = 0; i < count; i++) {
+        var m = data.metrics[i];
+        html += '<div class="metric-card">'
+              + '<div class="metric-label">' + esc(m.label) + '</div>'
+              + '<div class="metric-value">' + esc(m.value) + '</div>'
+              + '</div>';
+      }
+      grid.innerHTML = html;
+      // Adjust grid columns if fewer than 3 metrics
+      if (count <= 2) {
+        grid.style.gridTemplateColumns = 'repeat(' + count + ', 1fr)';
+      } else if (count === 4) {
+        grid.style.gridTemplateColumns = '1fr 1fr';
+      }
+    }
+
+    // Highlights
+    if (data.highlights && data.highlights.length) {
+      var list = document.getElementById('highlights-list');
+      var lhtml = '';
+      for (var j = 0; j < data.highlights.length; j++) {
+        lhtml += '<li>' + esc(data.highlights[j]) + '</li>';
+      }
+      list.innerHTML = lhtml;
+    }
+
+    // Description / Overview
+    if (data.description) {
+      var body = document.getElementById('overview-body');
+      var paragraphs = String(data.description).split(/\n\n|\n/);
+      var phtml = '';
+      for (var k = 0; k < paragraphs.length; k++) {
+        var pt = paragraphs[k].trim();
+        if (pt) {
+          phtml += '<p>' + esc(pt) + '</p>';
+        }
+      }
+      body.innerHTML = phtml;
+    }
+
+    // Disclaimer
+    if (data.disclaimer) {
+      document.getElementById('footer-disclaimer').textContent = data.disclaimer;
+    }
+
+    return true;
+  };
+})();
+</script>
+</body>
+</html>

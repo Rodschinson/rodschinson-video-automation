@@ -25,6 +25,7 @@ const TYPE_META = {
   text_only:  { icon: '✍️', label: 'Text'       },
   story:      { icon: '⚡', label: 'Story'      },
   reel:       { icon: '🎞️', label: 'Reel'       },
+  property_teaser: { icon: '🏢', label: 'Teaser' },
 }
 
 const TEMPLATE_GRADIENTS = {
@@ -42,6 +43,7 @@ const FILTERS = [
   { id: 'carousel',  label: 'Carousel'  },
   { id: 'image_post',label: 'Post'      },
   { id: 'reel',      label: 'Reel'      },
+  { id: 'property_teaser', label: 'Teaser' },
   { id: 'pending',   label: 'Pending'   },
   { id: 'published', label: 'Published' },
 ]

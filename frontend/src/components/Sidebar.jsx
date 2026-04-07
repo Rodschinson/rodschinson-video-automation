@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { PlusSquare, Library, CalendarDays, BarChart3, ExternalLink, Sun, Moon, Building2, Layers, Settings, LogOut, ChevronRight, Sparkles } from 'lucide-react'
+import { PlusSquare, Library, CalendarDays, BarChart3, ExternalLink, Sun, Moon, Building2, Layers, Settings, LogOut, ChevronRight, Sparkles, Landmark } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useMobile } from '../hooks/useMobile'
@@ -11,6 +11,7 @@ const NAV_MAIN = [
   { to: '/schedule',  icon: CalendarDays, label: 'Schedule'    },
   { to: '/analytics', icon: BarChart3,    label: 'Analytics'   },
   { to: '/strategy',  icon: Sparkles,     label: 'Strategy'    },
+  { to: '/properties', icon: Landmark,    label: 'Properties'  },
 ]
 const NAV_BRAND = [
   { to: '/brands',    icon: Building2,    label: 'Brands'      },
