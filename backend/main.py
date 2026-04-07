@@ -1578,12 +1578,15 @@ Rules:
 
             # Clean property data for portfolio rendering
             import re
+            import html as html_mod
             for p in all_properties:
-                # Strip HTML from description
+                # Strip HTML tags and decode entities from description
                 desc = p.get("description", "")
-                if desc and ("<" in desc):
+                if desc:
                     desc = re.sub(r"<br\s*/?>", " \u2022 ", desc)
                     desc = re.sub(r"<[^>]+>", "", desc)
+                    desc = html_mod.unescape(desc)  # decode &amp; &nbsp; &eacute; etc.
+                    desc = desc.replace("\xa0", " ")  # replace non-breaking spaces
                     p["description"] = desc.strip()
                 # Extract agent name from [id, name] array
                 agent = p.get("agent")
@@ -1598,22 +1601,27 @@ Rules:
                 if not all_properties:
                     raise RuntimeError("None of the selected properties were found.")
 
-            # Group properties by asset type
-            from collections import OrderedDict
+            # Group properties by asset type label (merge types with same label)
             type_groups: dict[str, list[dict]] = {}
+            type_key_for_label: dict[str, str] = {}  # label -> first asset_type key
             for p in all_properties:
                 at = p.get("asset_type") or "other"
-                type_groups.setdefault(at, []).append(p)
-
-            # Build sections (sorted by label)
-            sections = []
-            for at in sorted(type_groups.keys(), key=lambda k: ASSET_TYPE_MAP.get(k, {}).get("label", k)):
                 info = ASSET_TYPE_MAP.get(at, {"icon": "\U0001F3E2", "label": at.title(), "template": "teaser_building"})
+                label = info["label"]
+                if label not in type_key_for_label:
+                    type_key_for_label[label] = at
+                type_groups.setdefault(label, []).append(p)
+
+            # Build sections (sorted by label, already merged by label)
+            sections = []
+            for label in sorted(type_groups.keys()):
+                at = type_key_for_label[label]
+                info = ASSET_TYPE_MAP.get(at, {"icon": "\U0001F3E2", "label": label, "template": "teaser_building"})
                 sections.append({
                     "asset_type": at,
-                    "label": info["label"],
+                    "label": label,
                     "icon": info["icon"],
-                    "properties": type_groups[at],
+                    "properties": type_groups[label],
                 })
 
             total_count = sum(len(s["properties"]) for s in sections)

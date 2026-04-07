@@ -119,37 +119,51 @@ html, body {
 /* Cover footer with offices */
 .cover-offices {
   position: absolute;
-  bottom: 40px;
+  bottom: 36px;
   left: 50px;
   right: 50px;
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: center;
+  gap: 24px;
 }
 .cover-office {
   text-align: center;
+  padding: 10px 14px;
+  border-radius: 6px;
   flex: 1;
+  max-width: 200px;
+}
+.cover-office-hq-card {
+  border: 1px solid rgba(0,182,255,0.15);
+  background: rgba(0,182,255,0.04);
+}
+.cover-office-hq-badge {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 6px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--white);
+  background: var(--sky);
+  padding: 2px 8px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-bottom: 5px;
 }
 .cover-office-city {
   font-family: var(--heading);
   font-weight: 700;
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--sky);
-  margin-bottom: 3px;
-}
-.cover-office-hq {
-  font-family: var(--body);
-  font-size: 6.5px;
-  color: var(--sky);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 .cover-office-addr {
   font-family: var(--body);
-  font-size: 7px;
-  line-height: 1.45;
-  color: rgba(255,255,255,0.35);
+  font-size: 7.5px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.4);
 }
 .cover-phone {
   position: absolute;
@@ -331,15 +345,22 @@ html, body {
   letter-spacing: 7px; text-transform: uppercase; color: var(--sky);
 }
 .back-offices {
-  display: flex; gap: 40px; margin-bottom: 40px;
+  display: flex; gap: 30px; margin-bottom: 40px; justify-content: center;
 }
-.back-office { text-align: center; }
+.back-office { text-align: center; padding: 14px 18px; border-radius: 8px; min-width: 160px; }
+.back-office-hq-card {
+  border: 1px solid rgba(0,182,255,0.15);
+  background: rgba(0,182,255,0.04);
+}
+.back-office-hq-badge {
+  font-family: var(--heading); font-weight: 700; font-size: 7px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--white);
+  background: var(--sky); padding: 2px 10px; border-radius: 3px;
+  display: inline-block; margin-bottom: 6px;
+}
 .back-office-city {
-  font-family: var(--heading); font-weight: 700; font-size: 10px;
+  font-family: var(--heading); font-weight: 700; font-size: 11px;
   letter-spacing: 2px; text-transform: uppercase; color: var(--sky); margin-bottom: 6px;
-}
-.back-office-hq {
-  font-family: var(--body); font-size: 8px; color: var(--sky); margin-bottom: 3px;
 }
 .back-office-addr {
   font-family: var(--body); font-size: 9px; line-height: 1.5; color: rgba(255,255,255,0.45);
@@ -355,7 +376,8 @@ html, body {
 .back-disclaimer {
   font-family: var(--body); font-weight: 300; font-size: 7.5px;
   line-height: 1.6; color: rgba(255,255,255,0.25); text-align: center;
-  max-width: 500px; position: absolute; bottom: 40px; left: 60px; right: 60px;
+  max-width: 560px; margin: 0 auto;
+  position: absolute; bottom: 40px; left: 60px; right: 60px;
 }
 </style>
 </head>
@@ -384,9 +406,9 @@ html, body {
   <div class="cover-phone" id="cover-phone">+32 2 550 36 87</div>
 
   <div class="cover-offices">
-    <div class="cover-office">
+    <div class="cover-office cover-office-hq-card">
+      <div class="cover-office-hq-badge">HEADQUARTERS</div>
       <div class="cover-office-city">Bruxelles</div>
-      <div class="cover-office-hq">(Headquarters)</div>
       <div class="cover-office-addr">Bastion Tower (level 11-12)<br>5 Place du Champ de Mars<br>1050 Brussels, Belgium</div>
     </div>
     <div class="cover-office">
@@ -479,10 +501,11 @@ function buildDescHtml(desc) {
 }
 
 window.loadPortfolio = function(data, brandName) {
-  // Cover
+  // Cover — extract just "RODSCHINSON" for logo (not "RODSCHINSON INVESTMENT")
+  var logoName = (brandName || 'RODSCHINSON').toUpperCase().replace(/\s*INVESTMENT\s*/i, '').trim() || 'RODSCHINSON';
   if (brandName) {
-    document.getElementById('cover-logo-main').textContent = brandName.toUpperCase();
-    document.getElementById('toc-footer-brand').textContent = brandName.toUpperCase();
+    document.getElementById('cover-logo-main').textContent = logoName;
+    document.getElementById('toc-footer-brand').textContent = logoName + ' INVESTMENT';
   }
   if (data.title) document.getElementById('cover-title').textContent = data.title;
   if (data.subtitle) document.getElementById('cover-subtitle').textContent = data.subtitle;
@@ -501,10 +524,11 @@ window.loadPortfolio = function(data, brandName) {
   // For TOC, we estimate pages per section (4 cards per page).
   var CARDS_PER_PAGE = 4;
   sections.forEach(function(sec) {
+    var propCount = (sec.properties || []).length;
+    if (propCount === 0) return; // skip empty sections
     var li = document.createElement('li');
     li.className = 'toc-item';
     var icon = ASSET_ICONS[sec.asset_type] || sec.icon || '\u{1F3E2}';
-    var propCount = (sec.properties || []).length;
     li.innerHTML =
       '<span class="toc-icon">' + icon + '</span>' +
       '<span class="toc-label">' + escapeHtml(sec.label) + '</span>' +
@@ -519,7 +543,7 @@ window.loadPortfolio = function(data, brandName) {
   var container = document.getElementById('sections-container');
   container.innerHTML = '';
   var currentPageNum = 3;
-  var footerBrand = (brandName || 'RODSCHINSON').toUpperCase();
+  var footerBrand = logoName + ' INVESTMENT';
 
   // Flatten all sections into a page-building queue
   // Strategy: pack cards tightly, start new section header on current page if space permits
@@ -533,6 +557,9 @@ window.loadPortfolio = function(data, brandName) {
     // If we have a current page with remaining space AND only 1-2 slots used,
     // and this section is small (1-2 properties), put them together to avoid lonely pages.
     // Otherwise, always start a new page for each section header.
+
+    // Skip sections with no properties
+    if (props.length === 0) return;
 
     // Start a new page for each section (section header takes space of ~1 card slot)
     var headerSlot = 1; // section header uses 1 of 4 slots
@@ -635,16 +662,16 @@ window.loadPortfolio = function(data, brandName) {
   backPage.className = 'page back-page';
   var backHtml =
     '<div class="back-logo">' +
-      '<div class="back-logo-main">' + escapeHtml(footerBrand) + '</div>' +
+      '<div class="back-logo-main">' + escapeHtml(logoName) + '</div>' +
       '<div class="back-logo-line"></div>' +
       '<div class="back-logo-sub">I N V E S T M E N T</div>' +
     '</div>' +
     '<div class="back-phone">+32 2 550 36 87</div>' +
     '<div class="back-website">rodschinson.com</div>' +
     '<div class="back-offices">' +
-      '<div class="back-office">' +
+      '<div class="back-office back-office-hq-card">' +
+        '<div class="back-office-hq-badge">HEADQUARTERS</div>' +
         '<div class="back-office-city">Bruxelles</div>' +
-        '<div class="back-office-hq">(Headquarters)</div>' +
         '<div class="back-office-addr">Bastion Tower (level 11-12)<br>5 Place du Champ de Mars<br>1050 Brussels, Belgium</div>' +
       '</div>' +
       '<div class="back-office">' +
