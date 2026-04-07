@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=794, height=1123">
+<title>Teaser — Warehouse / Logistics</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:  #08316F;
+  --gold:  #C8A96E;
+  --bg:    #F4F5F2;
+  --ink:   #0D1F3C;
+  --muted: rgba(8,49,111,0.42);
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --sans:  'DM Sans', sans-serif;
+}
+
+html, body {
+  width: 794px;
+  height: 1123px;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--sans);
+  color: var(--ink);
+}
+
+/* ═══ GRID OVERLAY — industrial blueprint ═══ */
+.grid-overlay {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--navy) 3.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--navy) 3.5%, transparent) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══ CORNER BRACKETS ═══ */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  position: absolute;
+  width: 48px; height: 48px;
+  pointer-events: none;
+  z-index: 20;
+}
+.corner-tl { top: 32px; left: 32px; }
+.corner-tr { top: 32px; right: 32px; }
+.corner-bl { bottom: 32px; left: 32px; }
+.corner-br { bottom: 32px; right: 32px; }
+.corner-tl svg, .corner-tr svg, .corner-bl svg, .corner-br svg {
+  width: 100%; height: 100%;
+}
+
+/* ═══ PAGE WRAPPER ═══ */
+.page {
+  position: relative;
+  width: 794px;
+  height: 1123px;
+  overflow: hidden;
+}
+
+/* ═══ BRAND HEADER ═══ */
+.brand-header {
+  position: relative;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 48px;
+  z-index: 10;
+}
+.brand-name {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--navy);
+  opacity: 0.6;
+}
+.brand-tag {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* ═══ GOLD + NAVY RULE ═══ */
+.top-rule {
+  height: 4px;
+  background: linear-gradient(90deg, var(--navy) 0%, var(--gold) 50%, transparent 100%);
+  margin: 0 48px;
+  z-index: 10;
+  position: relative;
+}
+
+/* ═══ CONTENT AREA ═══ */
+.content {
+  position: relative;
+  padding: 28px 48px 0;
+  z-index: 10;
+}
+
+/* ═══ HEADLINE ═══ */
+.headline {
+  font-family: var(--serif);
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.08;
+  color: var(--navy);
+  margin-bottom: 8px;
+}
+.subheadline {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+/* ═══ WAREHOUSE SVG HERO ═══ */
+.hero-illustration {
+  width: 100%;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+}
+.hero-illustration svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ═══ METRICS GRID ═══ */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.metric-card {
+  background: rgba(255,255,255,0.65);
+  border: 1px solid color-mix(in srgb, var(--navy) 8%, transparent);
+  padding: 16px 14px;
+  text-align: center;
+  position: relative;
+}
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gold);
+  opacity: 0.5;
+}
+.metric-value {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--navy);
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.metric-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ═══ KEY HIGHLIGHTS ═══ */
+.highlights-section {
+  margin-bottom: 22px;
+}
+.section-title {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 25%, transparent);
+}
+.highlights-list {
+  list-style: none;
+  padding: 0;
+}
+.highlights-list li {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink);
+  padding-left: 16px;
+  position: relative;
+  margin-bottom: 4px;
+}
+.highlights-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+
+/* ═══ OVERVIEW / DESCRIPTION ═══ */
+.description-section {
+  margin-bottom: 20px;
+}
+.description-text {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--ink);
+  opacity: 0.82;
+}
+.description-text p + p {
+  margin-top: 8px;
+}
+
+/* ═══ FOOTER ═══ */
+.page-footer {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 0 48px 24px;
+  z-index: 10;
+}
+.footer-rule {
+  height: 1px;
+  background: var(--gold);
+  opacity: 0.4;
+  margin-bottom: 12px;
+}
+.footer-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.footer-brand {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.footer-disclaimer {
+  font-size: 8px;
+  line-height: 1.5;
+  color: var(--muted);
+  opacity: 0.65;
+  max-width: 380px;
+  text-align: right;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Grid overlay — industrial blueprint -->
+  <div class="grid-overlay"></div>
+
+  <!-- Corner brackets -->
+  <div class="corner-tl">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0 16V0H16" stroke="#08316F" stroke-width="1.5" opacity="0.18"/>
+      <path d="M0 12V0H12" stroke="#C8A96E" stroke-width="0.75" opacity="0.25"/>
+    </svg>
+  </div>
+  <div class="corner-tr">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M48 16V0H32" stroke="#08316F" stroke-width="1.5" opacity="0.18"/>
+      <path d="M48 12V0H36" stroke="#C8A96E" stroke-width="0.75" opacity="0.25"/>
+    </svg>
+  </div>
+  <div class="corner-bl">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0 32V48H16" stroke="#08316F" stroke-width="1.5" opacity="0.18"/>
+      <path d="M0 36V48H12" stroke="#C8A96E" stroke-width="0.75" opacity="0.25"/>
+    </svg>
+  </div>
+  <div class="corner-br">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M48 32V48H32" stroke="#08316F" stroke-width="1.5" opacity="0.18"/>
+      <path d="M48 36V48H36" stroke="#C8A96E" stroke-width="0.75" opacity="0.25"/>
+    </svg>
+  </div>
+
+  <!-- Brand header -->
+  <div class="brand-header">
+    <span class="brand-name" id="headerBrand">RODSCHINSON</span>
+    <span class="brand-tag">INVESTMENT MEMORANDUM</span>
+  </div>
+
+  <!-- Gold + navy rule -->
+  <div class="top-rule"></div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Headline -->
+    <h1 class="headline" id="headline">Prime Logistics Facility</h1>
+    <p class="subheadline" id="subheadline">Strategic distribution hub with modern infrastructure</p>
+
+    <!-- Warehouse SVG hero illustration -->
+    <div class="hero-illustration">
+      <svg viewBox="0 0 700 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Ground line -->
+        <rect x="0" y="145" width="700" height="1" fill="#08316F" opacity="0.07"/>
+
+        <!-- Main warehouse building -->
+        <rect x="60" y="50" width="480" height="95" fill="#08316F" opacity="0.07" rx="1"/>
+        <!-- Roof / slight pitch -->
+        <polygon points="55,50 300,22 545,50" fill="#08316F" opacity="0.05"/>
+        <!-- Roof ridge line -->
+        <line x1="55" y1="50" x2="545" y2="50" stroke="#08316F" stroke-width="1.5" opacity="0.07"/>
+
+        <!-- Loading dock doors (4 bays) -->
+        <rect x="100" y="85" width="70" height="55" rx="2" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="1" stroke-opacity="0.08"/>
+        <rect x="190" y="85" width="70" height="55" rx="2" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="1" stroke-opacity="0.08"/>
+        <rect x="280" y="85" width="70" height="55" rx="2" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="1" stroke-opacity="0.08"/>
+        <rect x="370" y="85" width="70" height="55" rx="2" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="1" stroke-opacity="0.08"/>
+
+        <!-- Dock levelers (small ramps) -->
+        <rect x="105" y="140" width="60" height="5" fill="#08316F" opacity="0.05" rx="0.5"/>
+        <rect x="195" y="140" width="60" height="5" fill="#08316F" opacity="0.05" rx="0.5"/>
+        <rect x="285" y="140" width="60" height="5" fill="#08316F" opacity="0.05" rx="0.5"/>
+        <rect x="375" y="140" width="60" height="5" fill="#08316F" opacity="0.05" rx="0.5"/>
+
+        <!-- Small windows along top -->
+        <rect x="105" y="60" width="24" height="12" rx="1" fill="#08316F" opacity="0.03" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.06"/>
+        <rect x="195" y="60" width="24" height="12" rx="1" fill="#08316F" opacity="0.03" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.06"/>
+        <rect x="285" y="60" width="24" height="12" rx="1" fill="#08316F" opacity="0.03" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.06"/>
+        <rect x="375" y="60" width="24" height="12" rx="1" fill="#08316F" opacity="0.03" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.06"/>
+        <rect x="465" y="60" width="24" height="12" rx="1" fill="#08316F" opacity="0.03" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.06"/>
+
+        <!-- Office section (right side, taller) -->
+        <rect x="460" y="38" width="80" height="107" fill="#08316F" opacity="0.055" rx="1"/>
+        <rect x="470" y="50" width="20" height="16" rx="1" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.07"/>
+        <rect x="500" y="50" width="20" height="16" rx="1" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.07"/>
+        <rect x="470" y="76" width="20" height="16" rx="1" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.07"/>
+        <rect x="500" y="76" width="20" height="16" rx="1" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="0.5" stroke-opacity="0.07"/>
+        <!-- Office door -->
+        <rect x="480" y="115" width="22" height="30" rx="1" fill="#08316F" opacity="0.04" stroke="#08316F" stroke-width="0.75" stroke-opacity="0.08"/>
+
+        <!-- Shipping containers (stacked, right area) -->
+        <rect x="570" y="105" width="75" height="28" rx="1" fill="#08316F" opacity="0.06" stroke="#08316F" stroke-width="0.75" stroke-opacity="0.07"/>
+        <rect x="575" y="80" width="65" height="25" rx="1" fill="#08316F" opacity="0.05" stroke="#08316F" stroke-width="0.75" stroke-opacity="0.06"/>
+        <!-- Container ridges -->
+        <line x1="585" y1="105" x2="585" y2="133" stroke="#08316F" stroke-width="0.5" opacity="0.05"/>
+        <line x1="600" y1="105" x2="600" y2="133" stroke="#08316F" stroke-width="0.5" opacity="0.05"/>
+        <line x1="615" y1="105" x2="615" y2="133" stroke="#08316F" stroke-width="0.5" opacity="0.05"/>
+        <line x1="630" y1="105" x2="630" y2="133" stroke="#08316F" stroke-width="0.5" opacity="0.05"/>
+
+        <!-- Forklift silhouette (left side, near docks) -->
+        <g transform="translate(22, 100)" opacity="0.07">
+          <!-- Forklift body -->
+          <rect x="8" y="14" width="28" height="22" rx="2" fill="#08316F"/>
+          <!-- Cabin/cage -->
+          <rect x="10" y="4" width="14" height="12" rx="1" fill="#08316F"/>
+          <rect x="12" y="6" width="10" height="8" rx="0.5" fill="#F4F5F2"/>
+          <!-- Forks -->
+          <rect x="0" y="34" width="22" height="3" rx="0.5" fill="#08316F"/>
+          <rect x="0" y="40" width="22" height="3" rx="0.5" fill="#08316F"/>
+          <!-- Mast -->
+          <rect x="2" y="6" width="3" height="30" rx="0.5" fill="#08316F"/>
+          <!-- Wheels -->
+          <circle cx="14" cy="40" r="5" fill="#08316F"/>
+          <circle cx="32" cy="40" r="4" fill="#08316F"/>
+          <!-- Counterweight -->
+          <rect x="30" y="18" width="8" height="16" rx="1" fill="#08316F"/>
+        </g>
+
+        <!-- Pallet near forklift -->
+        <g transform="translate(68, 130)" opacity="0.05">
+          <rect x="0" y="0" width="20" height="4" fill="#08316F"/>
+          <rect x="2" y="4" width="3" height="11" fill="#08316F"/>
+          <rect x="15" y="4" width="3" height="11" fill="#08316F"/>
+          <rect x="0" y="11" width="20" height="4" fill="#08316F"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Metrics grid -->
+    <div class="metrics-grid" id="metricsGrid">
+      <div class="metric-card">
+        <div class="metric-value">12,500 m&sup2;</div>
+        <div class="metric-label">Total GLA</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">&euro;6.2M</div>
+        <div class="metric-label">Asking Price</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">7.1%</div>
+        <div class="metric-label">Net Initial Yield</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">10.5m</div>
+        <div class="metric-label">Clear Height</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">8</div>
+        <div class="metric-label">Loading Docks</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">2026</div>
+        <div class="metric-label">Year Built</div>
+      </div>
+    </div>
+
+    <!-- Key Highlights -->
+    <div class="highlights-section">
+      <div class="section-title">KEY HIGHLIGHTS</div>
+      <ul class="highlights-list" id="highlightsList">
+        <li>Strategic location adjacent to major motorway interchange</li>
+        <li>Grade A specification with BREEAM Excellent rating</li>
+        <li>Fully let to investment-grade tenant on 12-year lease</li>
+        <li>Cross-dock capability with 8 loading bays</li>
+      </ul>
+    </div>
+
+    <!-- Overview / Description -->
+    <div class="description-section">
+      <div class="section-title">OVERVIEW</div>
+      <div class="description-text" id="descriptionText">
+        <p>A prime logistics facility strategically positioned within one of the region's most established distribution corridors. The property offers institutional-grade specification including 10.5m clear internal height, ESFR sprinkler coverage, and comprehensive dock-level loading infrastructure.</p>
+        <p>The asset is fully let to a blue-chip occupier on a long-dated lease with contractual rental uplifts, providing secure income with embedded reversionary potential.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="page-footer">
+    <div class="footer-rule"></div>
+    <div class="footer-inner">
+      <span class="footer-brand" id="footerBrand">RODSCHINSON</span>
+      <span class="footer-disclaimer" id="footerDisclaimer">This document is for informational purposes only and does not constitute an offer or solicitation. All figures are indicative and subject to verification.</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+window.loadTeaser = function(data, brandName) {
+  // data: headline, subheadline, asset_type_label, metrics[], highlights[], description, disclaimer
+  // brandName: string for brand display
+
+  // Brand name
+  var brand = brandName || 'RODSCHINSON';
+  var headerBrand = document.getElementById('headerBrand');
+  var footerBrand = document.getElementById('footerBrand');
+  if (headerBrand) headerBrand.textContent = brand;
+  if (footerBrand) footerBrand.textContent = brand;
+
+  // Headline
+  if (data.headline) {
+    document.getElementById('headline').textContent = data.headline;
+  }
+
+  // Subheadline
+  if (data.subheadline) {
+    document.getElementById('subheadline').textContent = data.subheadline;
+  }
+
+  // Metrics grid
+  if (data.metrics && Array.isArray(data.metrics)) {
+    var grid = document.getElementById('metricsGrid');
+    grid.innerHTML = '';
+    data.metrics.forEach(function(m) {
+      var card = document.createElement('div');
+      card.className = 'metric-card';
+      card.innerHTML =
+        '<div class="metric-value">' + (m.value || '') + '</div>' +
+        '<div class="metric-label">' + (m.label || '') + '</div>';
+      grid.appendChild(card);
+    });
+  }
+
+  // Highlights
+  if (data.highlights && Array.isArray(data.highlights)) {
+    var list = document.getElementById('highlightsList');
+    list.innerHTML = '';
+    data.highlights.forEach(function(h) {
+      var li = document.createElement('li');
+      li.textContent = h;
+      list.appendChild(li);
+    });
+  }
+
+  // Description
+  if (data.description) {
+    var descEl = document.getElementById('descriptionText');
+    if (typeof data.description === 'string') {
+      descEl.innerHTML = data.description.split('\n').filter(function(p) { return p.trim(); }).map(function(p) {
+        return '<p>' + p + '</p>';
+      }).join('');
+    }
+  }
+
+  // Disclaimer
+  if (data.disclaimer) {
+    document.getElementById('footerDisclaimer').textContent = data.disclaimer;
+  }
+
+  return true;
+};
+</script>
+</body>
+</html>

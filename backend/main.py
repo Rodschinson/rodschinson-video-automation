@@ -56,6 +56,9 @@ AB_TESTS_FILE         = OUTPUT / "ab_tests.json"
 ASSETS_DIR            = OUTPUT / "assets"
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 ASSETS_FILE           = OUTPUT / "assets.json"
+PROPERTIES_FILE       = OUTPUT / "properties.json"
+TEASER_DIR            = OUTPUT / "teaser"
+TEASER_DIR.mkdir(parents=True, exist_ok=True)
 
 load_dotenv(ROOT / ".env", override=False)
 
@@ -1442,6 +1445,122 @@ Return ONLY the post text, nothing else."""
             output_file = str(text_out_path)
             output_text = post_text[:5000]
 
+        # ── Property Teaser (PDF) ──────────────────────────────────────────
+        elif content_type == "property_teaser":
+            property_data = data.get("property_data", {})
+            selected_fields = data.get("selected_fields", [])
+            teaser_template = data.get("template") or property_data.get("template") or "teaser_building"
+            if teaser_template not in TEASER_TEMPLATES:
+                teaser_template = "teaser_building"
+
+            # Build a context string from selected fields
+            field_lines = []
+            field_map = {
+                "title": ("Property Name", property_data.get("title", subject)),
+                "price": ("Price", property_data.get("price", "")),
+                "description": ("Description", property_data.get("description", "")),
+                "reference": ("Reference", property_data.get("reference", "")),
+                "agent": ("Agent", property_data.get("agent", "")),
+                "sectors": ("Sectors", property_data.get("sectors", "")),
+                "nda": ("NDA", property_data.get("nda", "")),
+                "asset_type": ("Asset Type", property_data.get("asset_label", property_data.get("asset_type", ""))),
+                "status": ("Status", property_data.get("status", "")),
+            }
+            for key in selected_fields:
+                if key in field_map:
+                    label, val = field_map[key]
+                    if val:
+                        field_lines.append(f"- {label}: {val}")
+
+            property_context = "\n".join(field_lines) or f"Property: {subject}"
+
+            _job_update(job, status="running", step="Writing teaser copy", progress=10)
+            await _save_job(job)
+
+            api_key = os.getenv("ANTHROPIC_API_KEY", "")
+            lang_label = {"EN": "English", "FR": "French", "NL": "Dutch"}.get(language, "English")
+
+            teaser_prompt = f"""You are writing a professional property investment teaser / technical sheet for {brand_display}.
+
+PROPERTY DATA:
+{property_context}
+
+LANGUAGE: {lang_label}
+ASSET TYPE: {property_data.get("asset_label", property_data.get("asset_type", "Property"))}
+
+Generate a structured JSON teaser document with these fields:
+{{
+  "headline": "Bold property headline (max 60 chars)",
+  "subheadline": "One-line positioning statement",
+  "asset_type_label": "Display label for the asset type",
+  "metrics": [
+    {{"label": "metric name", "value": "metric value"}}
+  ],
+  "highlights": ["Key point 1", "Key point 2", "Key point 3", "Key point 4"],
+  "description": "2-3 polished paragraphs describing the investment opportunity",
+  "disclaimer": "Brief legal disclaimer"
+}}
+
+Rules:
+- metrics: include 3-6 key metrics from the provided data (price, surface, yield, year, location, etc.)
+- highlights: 3-6 crisp bullet points about the property's strengths
+- description: professional, investor-grade language — no hype
+- All text in {lang_label}
+- Return ONLY valid JSON, no markdown
+"""
+
+            async with _claude_semaphore:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                        json={"model": "claude-sonnet-4-6", "max_tokens": 2000,
+                              "messages": [{"role": "user", "content": teaser_prompt}]},
+                        timeout=60,
+                    )
+                    resp.raise_for_status()
+
+            teaser_raw = resp.json()["content"][0]["text"]
+            teaser_json = _parse_json(teaser_raw)
+
+            # Write teaser JSON
+            teaser_path = TEASER_DIR / f"{job_id[:8]}_teaser.json"
+            async with aiofiles.open(teaser_path, "w") as f:
+                await f.write(json.dumps(teaser_json, indent=2, ensure_ascii=False))
+
+            _job_update(job, status="running", step="Rendering PDF", progress=50)
+            await _save_job(job)
+
+            # Render via teaser_renderer.js
+            pdf_path  = TEASER_DIR / f"{job_id[:8]}_teaser.pdf"
+            thumb_path = TEASER_DIR / f"{job_id[:8]}_thumb.png"
+
+            render_cmd = [
+                "node", str(PUPPET / "teaser_renderer.js"),
+                "--script", str(teaser_path),
+                "--template", teaser_template,
+                "--output-pdf", str(pdf_path),
+                "--output-thumb", str(thumb_path),
+            ]
+            # Inject brand colors
+            brand_data = await _brand_lookup(brand_arg)
+            if brand_data:
+                render_cmd += [
+                    "--brand-name", brand_data.get("name", "Rodschinson"),
+                    "--brand-primary", brand_data.get("primaryColor", "#08316F"),
+                    "--brand-accent", brand_data.get("accentColor", "#C8A96E"),
+                ]
+
+            code, out, err = await _run(render_cmd, cwd=PUPPET, timeout=60, job_id=job_id)
+            if code != 0:
+                raise RuntimeError(f"Teaser render failed (exit {code})\n{err[-600:]}")
+
+            output_file = str(pdf_path)
+            script_path = teaser_path
+
+            # Store thumbnail path in job for library preview
+            job["thumbnail"] = str(thumb_path)
+
         else:
             raise RuntimeError(f"Unknown content_type: {content_type!r}")
 
@@ -1469,6 +1588,8 @@ Return ONLY the post text, nothing else."""
             lib_entry["output_text"] = output_text
         if slide_png_paths:
             lib_entry["slide_images"] = slide_png_paths
+        if job.get("thumbnail"):
+            lib_entry["thumbnail"] = job["thumbnail"]
 
         await _library_append(lib_entry)
 
@@ -1996,10 +2117,16 @@ async def serve_video(job_id: str):
 
 @app.get("/api/image/{job_id}")
 async def serve_image(job_id: str):
-    """Serve the rendered PNG for an image_post job."""
+    """Serve the rendered PNG for an image_post or teaser thumbnail."""
     lib = await _library_load()
     entry = next((e for e in lib if e.get("job_id") == job_id), None)
-    if not entry or not entry.get("output_file"):
+    if not entry:
+        raise HTTPException(404, "Image not found")
+    # Teasers store a separate thumbnail PNG
+    thumb = entry.get("thumbnail")
+    if thumb and Path(thumb).exists():
+        return FileResponse(thumb, media_type="image/png")
+    if not entry.get("output_file"):
         raise HTTPException(404, "Image not found")
     path = Path(entry["output_file"])
     if not path.exists():
@@ -5052,3 +5179,177 @@ async def delete_asset(asset_id: str):
         if path.exists():
             path.unlink()
         await _assets_save([a for a in assets if a["id"] != asset_id])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ODOO PROPERTY MANAGEMENT — Sync + Teaser Generation
+# ══════════════════════════════════════════════════════════════════════════════
+
+_ODOO_URL  = os.getenv("ODOO_URL", "https://portal.rodschinson.com")
+_ODOO_DB   = os.getenv("ODOO_DB", "swancharpp17")
+_ODOO_USER = os.getenv("ODOO_USER", "mouline.ammar@rodschinson.com")
+_ODOO_PASS = os.getenv("ODOO_API_KEY", "")  # API key doubles as password
+_ODOO_MODEL = "property.details"
+
+_ODOO_FIELDS = [
+    "id", "name", "asset_code", "responsable", "type", "type_prop",
+    "sale_price", "description", "all_secteur_prop", "all_brand_prop",
+    "property_images_ids", "stage_id", "regle_nda", "create_date", "write_date",
+]
+
+# ── Asset-type mapping (Odoo type_prop → template ID) ─────────────────────────
+ASSET_TYPE_MAP = {
+    "hotel":      {"icon": "🏨", "label": "Hotel",            "template": "teaser_hotel"},
+    "clinic":     {"icon": "🏥", "label": "Clinic / Medical", "template": "teaser_clinic"},
+    "building":   {"icon": "🏢", "label": "Office Building",  "template": "teaser_building"},
+    "office":     {"icon": "🏢", "label": "Office Building",  "template": "teaser_building"},
+    "warehouse":  {"icon": "🏭", "label": "Warehouse",        "template": "teaser_warehouse"},
+    "logistics":  {"icon": "🏭", "label": "Logistics",        "template": "teaser_warehouse"},
+    "resort":     {"icon": "🏖️", "label": "Resort",            "template": "teaser_resort"},
+    "pharmacy":   {"icon": "💊", "label": "Pharmacy",          "template": "teaser_pharmacy"},
+    "gym":        {"icon": "🏋️", "label": "Gym / Fitness",     "template": "teaser_gym"},
+    "fitness":    {"icon": "🏋️", "label": "Fitness",           "template": "teaser_gym"},
+    "parking":    {"icon": "🅿️", "label": "Parking",           "template": "teaser_parking"},
+    "student":    {"icon": "🎓", "label": "Student Housing",   "template": "teaser_student"},
+    "senior":     {"icon": "🏡", "label": "Senior Housing",    "template": "teaser_senior"},
+    "retail":     {"icon": "🛍️", "label": "Retail",            "template": "teaser_retail"},
+    "residential":{"icon": "🏠", "label": "Residential",       "template": "teaser_residential"},
+    "mixed":      {"icon": "🏢", "label": "Mixed-Use",         "template": "teaser_building"},
+    "land":       {"icon": "🏗️", "label": "Land",              "template": "teaser_building"},
+    "industrial": {"icon": "🏭", "label": "Industrial",        "template": "teaser_warehouse"},
+}
+
+TEASER_TEMPLATES = set(t["template"] for t in ASSET_TYPE_MAP.values())
+
+
+async def _properties_load() -> list[dict]:
+    if not PROPERTIES_FILE.exists(): return []
+    try:
+        async with aiofiles.open(PROPERTIES_FILE) as f:
+            return json.loads(await f.read())
+    except Exception as e:
+        log.error("Failed to load properties.json: %s", e)
+        return []
+
+
+async def _properties_save(entries: list[dict]) -> None:
+    async with aiofiles.open(PROPERTIES_FILE, "w") as f:
+        await f.write(json.dumps(entries, indent=2, default=str))
+
+
+def _map_odoo_property(raw: dict) -> dict:
+    """Transform a raw Odoo property.details record to our platform format."""
+    stage = raw.get("stage_id")
+    status_name = stage[1] if isinstance(stage, (list, tuple)) and len(stage) > 1 else str(stage or "")
+    status_map = {"On Sale": "Sale", "Reserved": "Reserved", "Sold": "Sold"}
+
+    type_prop_raw = (raw.get("type_prop") or "").strip().lower()
+    asset_info = ASSET_TYPE_MAP.get(type_prop_raw, {"icon": "🏢", "label": type_prop_raw or "Property", "template": "teaser_building"})
+
+    return {
+        "odoo_id":     raw.get("id"),
+        "title":       raw.get("name") or "",
+        "reference":   raw.get("asset_code") or "",
+        "asset_type":  type_prop_raw or "building",
+        "asset_label": asset_info["label"],
+        "asset_icon":  asset_info["icon"],
+        "template":    asset_info["template"],
+        "price":       raw.get("sale_price") or "",
+        "description": raw.get("description") or "",
+        "sectors":     raw.get("all_secteur_prop") or "",
+        "brands":      raw.get("all_brand_prop") or "",
+        "agent":       raw.get("responsable") or "",
+        "property_type": raw.get("type") or "",
+        "status":      status_map.get(status_name, "Sale"),
+        "nda":         raw.get("regle_nda") or "",
+        "image_ids":   raw.get("property_images_ids") or [],
+        "created_at":  raw.get("create_date") or "",
+        "updated_at":  raw.get("write_date") or "",
+    }
+
+
+async def _odoo_authenticate(client: httpx.AsyncClient) -> dict | None:
+    """Authenticate with Odoo, returns cookies dict or None."""
+    payload = {
+        "jsonrpc": "2.0", "method": "call", "id": 1,
+        "params": {"db": _ODOO_DB, "login": _ODOO_USER, "password": _ODOO_PASS},
+    }
+    try:
+        res = await client.post(f"{_ODOO_URL}/web/session/authenticate", json=payload, timeout=15)
+        data = res.json()
+        if data.get("error"):
+            log.error("Odoo auth error: %s", data["error"].get("message", ""))
+            return None
+        result = data.get("result", {})
+        if not result.get("uid"):
+            log.error("Odoo auth: no uid in response")
+            return None
+        # Return cookies for subsequent requests
+        return dict(res.cookies)
+    except Exception as e:
+        log.error("Odoo auth exception: %s", e)
+        return None
+
+
+@app.post("/api/odoo/sync-properties")
+async def sync_properties_from_odoo():
+    """Fetch properties from Odoo (stage = On Sale) and cache locally."""
+    if not _ODOO_PASS:
+        raise HTTPException(503, "Odoo credentials not configured (ODOO_API_KEY)")
+
+    async with httpx.AsyncClient() as client:
+        cookies = await _odoo_authenticate(client)
+        if not cookies:
+            raise HTTPException(502, "Failed to authenticate with Odoo")
+
+        payload = {
+            "jsonrpc": "2.0", "method": "call", "id": 2,
+            "params": {
+                "model": _ODOO_MODEL,
+                "domain": [["stage_id.name", "=", "On Sale"]],
+                "fields": _ODOO_FIELDS,
+                "limit": 200,
+            },
+        }
+        try:
+            res = await client.post(
+                f"{_ODOO_URL}/web/dataset/search_read",
+                json=payload, cookies=cookies, timeout=30,
+            )
+            data = res.json()
+        except Exception as e:
+            log.error("Odoo fetch error: %s", e)
+            raise HTTPException(502, f"Failed to fetch from Odoo: {e}")
+
+    if data.get("error"):
+        msg = data["error"].get("message", "Unknown Odoo error")
+        log.error("Odoo search_read error: %s", msg)
+        raise HTTPException(502, f"Odoo error: {msg}")
+
+    records = data.get("result", {}).get("records", [])
+    properties = [_map_odoo_property(r) for r in records]
+    await _properties_save(properties)
+    log.info("Synced %d properties from Odoo", len(properties))
+    return {"synced": len(properties), "properties": properties}
+
+
+@app.get("/api/properties")
+async def list_properties():
+    """Return cached properties list."""
+    return await _properties_load()
+
+
+@app.get("/api/properties/{odoo_id}")
+async def get_property(odoo_id: int):
+    """Return a single property by Odoo ID."""
+    props = await _properties_load()
+    prop = next((p for p in props if p.get("odoo_id") == odoo_id), None)
+    if not prop:
+        raise HTTPException(404, "Property not found")
+    return prop
+
+
+@app.get("/api/odoo/asset-types")
+async def list_asset_types():
+    """Return the asset type → template mapping."""
+    return ASSET_TYPE_MAP
