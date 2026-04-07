@@ -14,6 +14,14 @@ const ASSET_ICONS = {
   land: '🏗️', industrial: '🏭',
 }
 
+const ASSET_LABELS = {
+  hotel: 'Hotel', clinic: 'Clinic / Medical', building: 'Office Building', office: 'Office Building',
+  warehouse: 'Warehouse', logistics: 'Logistics', resort: 'Resort', pharmacy: 'Pharmacy',
+  gym: 'Gym / Fitness', fitness: 'Fitness', parking: 'Parking', student: 'Student Housing',
+  senior: 'Senior Housing', retail: 'Retail', residential: 'Residential', mixed: 'Mixed-Use',
+  land: 'Land', industrial: 'Industrial',
+}
+
 const LANGUAGES = [
   { value: 'EN', label: 'English' },
   { value: 'FR', label: 'French' },
@@ -33,20 +41,27 @@ const FIELD_OPTIONS = [
 ]
 
 // ── Property card ─────────────────────────────────────────────────────────────
-function PropertyCard({ prop, onGenerate, dark }) {
+function PropertyCard({ prop, onGenerate, dark, selected, onToggleSelect }) {
   const icon = ASSET_ICONS[prop.asset_type] || '🏢'
   return (
     <div style={{
       background: dark ? 'rgba(255,255,255,0.04)' : '#fff',
-      border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+      border: `1px solid ${selected ? '#00B6FF' : dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
       borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 12,
       transition: 'border-color 0.2s',
     }}
-    onMouseEnter={e => e.currentTarget.style.borderColor = '#C8A96E'}
-    onMouseLeave={e => e.currentTarget.style.borderColor = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}
+    onMouseEnter={e => { if (!selected) e.currentTarget.style.borderColor = '#C8A96E' }}
+    onMouseLeave={e => { if (!selected) e.currentTarget.style.borderColor = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }}
     >
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(prop.odoo_id)}
+          onClick={e => e.stopPropagation()}
+          style={{ accentColor: '#00B6FF', width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }}
+        />
         <span style={{ fontSize: 28 }}>{icon}</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#C8A96E' }}>
@@ -210,6 +225,157 @@ function GenerateModal({ prop, brands, onClose, onGenerate, dark }) {
   )
 }
 
+// ── Portfolio modal ───────────────────────────────────────────────────────────
+function PortfolioModal({ properties, selectedIds, brands, onClose, onGenerate, dark }) {
+  const [brand, setBrand] = useState(brands[0]?.id || 'rodschinson')
+  const [language, setLanguage] = useState('EN')
+  const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState(selectedIds.length > 0 ? 'selected' : 'all')
+
+  const bg = dark ? '#1a1a1a' : '#fff'
+  const border = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+  const text = dark ? '#fff' : '#0D1F3C'
+  const muted = dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'
+
+  // Group by type for preview
+  const targetProps = mode === 'selected'
+    ? properties.filter(p => selectedIds.includes(p.odoo_id))
+    : properties
+  const typeGroups = {}
+  targetProps.forEach(p => {
+    const t = p.asset_type || 'other'
+    if (!typeGroups[t]) typeGroups[t] = []
+    typeGroups[t].push(p)
+  })
+  const sortedTypes = Object.keys(typeGroups).sort()
+
+  const handleGenerate = async () => {
+    setLoading(true)
+    await onGenerate({ brand, language, propertyIds: mode === 'selected' ? selectedIds : null })
+    setLoading(false)
+    onClose()
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+    }} onClick={onClose}>
+      <div style={{
+        background: bg, borderRadius: 16, padding: 28, maxWidth: 580, width: '90%',
+        border: `1px solid ${border}`, maxHeight: '85vh', overflowY: 'auto',
+      }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <span style={{ fontSize: 28 }}>📋</span>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: text }}>Generate Portfolio</div>
+            <div style={{ fontSize: 12, color: '#00B6FF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Multi-page PDF — Properties by Asset Type
+            </div>
+          </div>
+        </div>
+
+        {/* Mode toggle */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, marginBottom: 8 }}>
+            Properties to include
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setMode('all')} style={{
+              flex: 1, padding: '10px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              border: `1px solid ${mode === 'all' ? '#00B6FF' : border}`,
+              background: mode === 'all' ? 'rgba(0,182,255,0.1)' : 'transparent',
+              color: mode === 'all' ? '#00B6FF' : text,
+            }}>
+              All Properties ({properties.length})
+            </button>
+            <button onClick={() => setMode('selected')} disabled={selectedIds.length === 0} style={{
+              flex: 1, padding: '10px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              border: `1px solid ${mode === 'selected' ? '#00B6FF' : border}`,
+              background: mode === 'selected' ? 'rgba(0,182,255,0.1)' : 'transparent',
+              color: mode === 'selected' ? '#00B6FF' : text,
+              opacity: selectedIds.length === 0 ? 0.4 : 1,
+            }}>
+              Selected ({selectedIds.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Type breakdown preview */}
+        <div style={{
+          marginBottom: 18, padding: 14, borderRadius: 8,
+          background: dark ? 'rgba(255,255,255,0.03)' : 'rgba(8,49,111,0.02)',
+          border: `1px solid ${border}`,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, marginBottom: 10 }}>
+            Portfolio breakdown
+          </div>
+          {sortedTypes.length === 0 ? (
+            <div style={{ fontSize: 12, color: muted }}>No properties selected</div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {sortedTypes.map(t => (
+                <span key={t} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                  background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(8,49,111,0.05)',
+                  color: text,
+                }}>
+                  {ASSET_ICONS[t] || '🏢'} {ASSET_LABELS[t] || t} ({typeGroups[t].length})
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ marginTop: 10, fontSize: 12, fontWeight: 600, color: '#00B6FF' }}>
+            {targetProps.length} properties — ~{Math.ceil(targetProps.length / 5) + 3} pages
+          </div>
+        </div>
+
+        {/* Brand + Language */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, marginBottom: 6 }}>Brand</div>
+            <select value={brand} onChange={e => setBrand(e.target.value)} style={{
+              width: '100%', padding: '8px 10px', borderRadius: 6, fontSize: 13,
+              border: `1px solid ${border}`, background: bg, color: text,
+            }}>
+              {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, marginBottom: 6 }}>Language</div>
+            <select value={language} onChange={e => setLanguage(e.target.value)} style={{
+              width: '100%', padding: '8px 10px', borderRadius: 6, fontSize: 13,
+              border: `1px solid ${border}`, background: bg, color: text,
+            }}>
+              {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{
+            padding: '9px 20px', borderRadius: 8, border: `1px solid ${border}`,
+            background: 'transparent', color: muted, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+          }}>Cancel</button>
+          <button onClick={handleGenerate} disabled={loading || targetProps.length === 0} style={{
+            padding: '9px 24px', borderRadius: 8, border: 'none', cursor: 'pointer',
+            background: loading ? 'rgba(0,182,255,0.3)' : 'linear-gradient(135deg,#08316F,#0a4a9a)',
+            color: '#fff', fontSize: 13, fontWeight: 600, letterSpacing: '0.02em',
+            opacity: targetProps.length === 0 ? 0.4 : 1,
+          }}>
+            {loading ? 'Generating...' : `Generate Portfolio (${targetProps.length})`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Properties() {
   const { dark } = useTheme()
@@ -224,6 +390,8 @@ export default function Properties() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [modalProp, setModalProp] = useState(null)
+  const [selectedIds, setSelectedIds] = useState([])
+  const [showPortfolio, setShowPortfolio] = useState(false)
 
   // Load cached properties
   const loadProperties = useCallback(async () => {
@@ -295,6 +463,49 @@ export default function Properties() {
     }
   }
 
+  // Toggle property selection for portfolio
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    )
+  }
+
+  const selectAll = () => {
+    const allIds = filtered.map(p => p.odoo_id)
+    setSelectedIds(prev => {
+      const allSelected = allIds.every(id => prev.includes(id))
+      if (allSelected) return prev.filter(id => !allIds.includes(id))
+      return [...new Set([...prev, ...allIds])]
+    })
+  }
+
+  // Generate portfolio
+  const handleGeneratePortfolio = async ({ brand, language, propertyIds }) => {
+    try {
+      const payload = {
+        subject: 'Property Portfolio',
+        brand,
+        language,
+        contentType: 'property_portfolio',
+        template: 'portfolio',
+        platforms: ['email'],
+        selected_property_ids: propertyIds,
+      }
+      const fd = new FormData()
+      fd.append('payload', JSON.stringify(payload))
+      const res = await apiFetch('/api/generate', { method: 'POST', body: fd })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Portfolio generation failed')
+      }
+      const { job_id } = await res.json()
+      trackJob(job_id, { title: 'Property Portfolio', contentType: 'property_portfolio' })
+      toast('Portfolio generation started', 'success')
+    } catch (e) {
+      toast(e.message, 'error')
+    }
+  }
+
   // Filtered list
   const assetTypes = [...new Set(properties.map(p => p.asset_type).filter(Boolean))]
   const filtered = properties.filter(p => {
@@ -325,18 +536,29 @@ export default function Properties() {
             {properties.length} properties from Odoo — generate PDF teasers
           </p>
         </div>
-        <button onClick={handleSync} disabled={syncing} style={{
-          padding: '9px 20px', borderRadius: 8, cursor: syncing ? 'wait' : 'pointer',
-          border: '1px solid rgba(0,182,255,0.3)', background: 'rgba(0,182,255,0.08)',
-          color: '#00B6FF', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          {syncing ? (
-            <>
-              <span style={{ width: 14, height: 14, border: '2px solid rgba(0,182,255,0.3)', borderTopColor: '#00B6FF', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
-              Syncing...
-            </>
-          ) : '🔄 Sync from Odoo'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {properties.length > 0 && (
+            <button onClick={() => setShowPortfolio(true)} style={{
+              padding: '9px 20px', borderRadius: 8, cursor: 'pointer',
+              border: '1px solid rgba(8,49,111,0.3)', background: 'rgba(8,49,111,0.06)',
+              color: '#08316F', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              📋 Portfolio {selectedIds.length > 0 ? `(${selectedIds.length})` : ''}
+            </button>
+          )}
+          <button onClick={handleSync} disabled={syncing} style={{
+            padding: '9px 20px', borderRadius: 8, cursor: syncing ? 'wait' : 'pointer',
+            border: '1px solid rgba(0,182,255,0.3)', background: 'rgba(0,182,255,0.08)',
+            color: '#00B6FF', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            {syncing ? (
+              <>
+                <span style={{ width: 14, height: 14, border: '2px solid rgba(0,182,255,0.3)', borderTopColor: '#00B6FF', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                Syncing...
+              </>
+            ) : '🔄 Sync from Odoo'}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -366,6 +588,20 @@ export default function Properties() {
             <option key={t} value={t}>{ASSET_ICONS[t] || '🏢'} {t}</option>
           ))}
         </select>
+        {filtered.length > 0 && (
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+            fontSize: 12, color: muted, marginLeft: 4,
+          }}>
+            <input
+              type="checkbox"
+              checked={filtered.length > 0 && filtered.every(p => selectedIds.includes(p.odoo_id))}
+              onChange={selectAll}
+              style={{ accentColor: '#00B6FF' }}
+            />
+            Select all
+          </label>
+        )}
         <span style={{ fontSize: 12, color: muted }}>{filtered.length} shown</span>
       </div>
 
@@ -419,13 +655,15 @@ export default function Properties() {
               key={prop.odoo_id}
               prop={prop}
               dark={dark}
+              selected={selectedIds.includes(prop.odoo_id)}
+              onToggleSelect={toggleSelect}
               onGenerate={() => setModalProp(prop)}
             />
           ))}
         </div>
       )}
 
-      {/* Generate modal */}
+      {/* Generate teaser modal */}
       {modalProp && (
         <GenerateModal
           prop={modalProp}
@@ -433,6 +671,18 @@ export default function Properties() {
           dark={dark}
           onClose={() => setModalProp(null)}
           onGenerate={handleGenerate}
+        />
+      )}
+
+      {/* Portfolio modal */}
+      {showPortfolio && (
+        <PortfolioModal
+          properties={properties}
+          selectedIds={selectedIds}
+          brands={brands}
+          dark={dark}
+          onClose={() => setShowPortfolio(false)}
+          onGenerate={handleGeneratePortfolio}
         />
       )}
     </div>

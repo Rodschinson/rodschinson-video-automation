@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=794, height=1123">
+<title>Property Portfolio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:   #08316F;
+  --sky:    #00B6FF;
+  --gold:   #C8A96E;
+  --white:  #FFFFFF;
+  --bg:     #F5F2ED;
+  --muted:  rgba(8,49,111,0.45);
+  --heading: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+  --body:    'DM Sans', 'Gill Sans', 'Helvetica Neue', Arial, sans-serif;
+}
+
+html, body {
+  width: 794px;
+  overflow-x: hidden;
+  background: var(--white);
+  font-family: var(--body);
+  color: var(--navy);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── PAGE BREAK ── */
+.page {
+  width: 794px;
+  min-height: 1123px;
+  position: relative;
+  page-break-after: always;
+  overflow: hidden;
+}
+.page:last-child { page-break-after: auto; }
+
+/* ══════════════════════════════════════════════════════════
+   COVER PAGE
+   ══════════════════════════════════════════════════════════ */
+.cover {
+  background: linear-gradient(160deg, #061d42 0%, var(--navy) 40%, #0a4a8a 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px;
+  color: var(--white);
+}
+
+.cover-crosshair {
+  position: absolute;
+  top: 60px;
+  left: 60px;
+}
+
+.cover-brand {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-bottom: 6px;
+}
+.cover-brand-sub {
+  font-family: var(--heading);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--sky);
+  margin-bottom: 50px;
+}
+
+.cover-rule {
+  width: 120px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--sky), var(--white));
+  border-radius: 2px;
+  margin-bottom: 50px;
+}
+
+.cover-title {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 42px;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--white);
+  margin-bottom: 12px;
+}
+.cover-subtitle {
+  font-family: var(--body);
+  font-weight: 300;
+  font-size: 16px;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.cover-meta {
+  display: flex;
+  gap: 40px;
+  margin-top: 20px;
+}
+.cover-meta-item {
+  text-align: center;
+}
+.cover-meta-value {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 32px;
+  color: var(--sky);
+}
+.cover-meta-label {
+  font-family: var(--body);
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  margin-top: 4px;
+}
+
+.cover-footer {
+  position: absolute;
+  bottom: 40px;
+  left: 60px;
+  right: 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cover-footer-text {
+  font-family: var(--body);
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 1px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   TABLE OF CONTENTS PAGE
+   ══════════════════════════════════════════════════════════ */
+.toc-page {
+  padding: 60px;
+  display: flex;
+  flex-direction: column;
+}
+.toc-header {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--navy);
+  margin-bottom: 8px;
+}
+.toc-rule {
+  width: 80px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--sky), var(--navy));
+  border-radius: 2px;
+  margin-bottom: 40px;
+}
+.toc-list {
+  list-style: none;
+  flex: 1;
+}
+.toc-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(8,49,111,0.06);
+}
+.toc-icon {
+  font-size: 24px;
+  width: 48px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.toc-label {
+  flex: 1;
+  font-family: var(--heading);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--navy);
+}
+.toc-count {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--sky);
+  background: rgba(0,182,255,0.08);
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin-left: 12px;
+}
+.toc-page-num {
+  font-family: var(--heading);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+  width: 40px;
+  text-align: right;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECTION PAGES (per asset type)
+   ══════════════════════════════════════════════════════════ */
+.section-page {
+  padding: 50px 52px 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Section header */
+.section-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.section-icon {
+  font-size: 32px;
+}
+.section-type-label {
+  font-family: var(--heading);
+  font-weight: 800;
+  font-size: 24px;
+  color: var(--navy);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.section-count-badge {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--white);
+  background: var(--sky);
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+.section-rule {
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--sky) 0%, var(--navy) 50%, transparent 100%);
+  border-radius: 2px;
+  margin-bottom: 20px;
+}
+
+/* Property card in portfolio */
+.prop-card {
+  display: flex;
+  gap: 0;
+  background: var(--white);
+  border: 1px solid rgba(8,49,111,0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  break-inside: avoid;
+}
+.prop-card-accent {
+  width: 4px;
+  background: linear-gradient(180deg, var(--sky), var(--navy));
+  flex-shrink: 0;
+}
+.prop-card-body {
+  flex: 1;
+  padding: 16px 20px;
+}
+.prop-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.prop-card-title {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--navy);
+  line-height: 1.25;
+  flex: 1;
+}
+.prop-card-ref {
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: rgba(8,49,111,0.04);
+  padding: 3px 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+.prop-card-price {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+.prop-card-desc {
+  font-family: var(--body);
+  font-weight: 400;
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.prop-card-meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.prop-card-meta-item {
+  font-family: var(--body);
+  font-size: 9px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.prop-card-meta-item strong {
+  color: var(--navy);
+  font-weight: 600;
+}
+.prop-card-status {
+  font-family: var(--heading);
+  font-weight: 600;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.status-sale { background: rgba(22,163,74,0.1); color: #16a34a; }
+.status-reserved { background: rgba(180,83,9,0.1); color: #b45309; }
+.status-other { background: rgba(8,49,111,0.06); color: var(--muted); }
+
+/* ── Page footer (all pages except cover) ── */
+.page-footer {
+  position: absolute;
+  bottom: 28px;
+  left: 52px;
+  right: 52px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(8,49,111,0.06);
+  padding-top: 10px;
+}
+.page-footer-brand {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 8px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+.page-footer-text {
+  font-family: var(--body);
+  font-size: 8px;
+  color: var(--muted);
+}
+.page-footer-num {
+  font-family: var(--heading);
+  font-weight: 600;
+  font-size: 9px;
+  color: var(--sky);
+}
+
+/* ══════════════════════════════════════════════════════════
+   SUMMARY / BACK PAGE
+   ══════════════════════════════════════════════════════════ */
+.summary-page {
+  padding: 60px;
+  display: flex;
+  flex-direction: column;
+}
+.summary-header {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+.summary-rule {
+  width: 80px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--sky), var(--navy));
+  border-radius: 2px;
+  margin-bottom: 30px;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+.summary-stat {
+  background: rgba(8,49,111,0.03);
+  border-left: 3px solid var(--sky);
+  padding: 16px 20px;
+  border-radius: 0 6px 6px 0;
+}
+.summary-stat-value {
+  font-family: var(--heading);
+  font-weight: 800;
+  font-size: 28px;
+  color: var(--navy);
+}
+.summary-stat-label {
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.summary-disclaimer {
+  font-family: var(--body);
+  font-weight: 300;
+  font-size: 8px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid rgba(8,49,111,0.08);
+}
+</style>
+</head>
+<body>
+
+<!-- ════ COVER PAGE ════ -->
+<div class="page cover" id="cover-page">
+  <!-- Crosshair -->
+  <svg class="cover-crosshair" width="50" height="50" viewBox="0 0 50 50" fill="none">
+    <circle cx="25" cy="25" r="14" stroke="#00B6FF" stroke-width="1" opacity="0.4"/>
+    <line x1="25" y1="0" x2="25" y2="50" stroke="#00B6FF" stroke-width="0.6" opacity="0.3"/>
+    <line x1="0" y1="25" x2="50" y2="25" stroke="#00B6FF" stroke-width="0.6" opacity="0.3"/>
+  </svg>
+
+  <div class="cover-brand" id="cover-brand">RODSCHINSON</div>
+  <div class="cover-brand-sub">I N V E S T M E N T</div>
+  <div class="cover-rule"></div>
+  <div class="cover-title" id="cover-title">Property Portfolio</div>
+  <div class="cover-subtitle" id="cover-subtitle">Exclusive Investment Opportunities</div>
+
+  <div class="cover-meta" id="cover-meta">
+    <div class="cover-meta-item">
+      <div class="cover-meta-value" id="meta-total">0</div>
+      <div class="cover-meta-label">Properties</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-value" id="meta-types">0</div>
+      <div class="cover-meta-label">Asset Types</div>
+    </div>
+  </div>
+
+  <div class="cover-footer">
+    <div class="cover-footer-text">CONFIDENTIAL</div>
+    <div class="cover-footer-text" id="cover-date"></div>
+  </div>
+</div>
+
+<!-- ════ TOC PAGE ════ -->
+<div class="page toc-page" id="toc-page">
+  <div class="toc-header" id="toc-header">Table of Contents</div>
+  <div class="toc-rule"></div>
+  <ul class="toc-list" id="toc-list"></ul>
+  <div class="page-footer">
+    <div class="page-footer-brand" id="toc-footer-brand">RODSCHINSON</div>
+    <div class="page-footer-text">Property Portfolio</div>
+    <div class="page-footer-num">2</div>
+  </div>
+</div>
+
+<!-- Section pages will be injected here by JS -->
+<div id="sections-container"></div>
+
+<script>
+var ASSET_ICONS = {
+  hotel: '\u{1F3E8}', clinic: '\u{1F3E5}', building: '\u{1F3E2}', office: '\u{1F3E2}',
+  warehouse: '\u{1F3ED}', logistics: '\u{1F3ED}', resort: '\u{1F3D6}\uFE0F', pharmacy: '\u{1F48A}',
+  gym: '\u{1F3CB}\uFE0F', fitness: '\u{1F3CB}\uFE0F', parking: '\u{1F17F}\uFE0F', student: '\u{1F393}',
+  senior: '\u{1F3E1}', retail: '\u{1F6CD}\uFE0F', residential: '\u{1F3E0}', mixed: '\u{1F3E2}',
+  land: '\u{1F3D7}\uFE0F', industrial: '\u{1F3ED}',
+};
+
+function escapeHtml(str) {
+  if (!str) return '';
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+function statusClass(s) {
+  if (!s) return 'status-other';
+  var sl = s.toLowerCase();
+  if (sl === 'sale') return 'status-sale';
+  if (sl === 'reserved') return 'status-reserved';
+  return 'status-other';
+}
+
+window.loadPortfolio = function(data, brandName) {
+  /*
+    data = {
+      title: "Property Portfolio",
+      subtitle: "Exclusive Investment Opportunities",
+      date: "April 2026",
+      disclaimer: "...",
+      sections: [
+        {
+          asset_type: "hotel",
+          label: "Hotel",
+          icon: "🏨",
+          properties: [
+            { title, price, reference, description, agent, sectors, status, nda }
+          ]
+        }
+      ],
+      summary: {
+        total_properties: N,
+        total_types: N,
+        stats: [ { label, value } ]
+      }
+    }
+  */
+
+  // Cover
+  if (brandName) {
+    document.getElementById('cover-brand').textContent = brandName.toUpperCase();
+    document.getElementById('toc-footer-brand').textContent = brandName.toUpperCase();
+  }
+  if (data.title) document.getElementById('cover-title').textContent = data.title;
+  if (data.subtitle) document.getElementById('cover-subtitle').textContent = data.subtitle;
+  if (data.date) document.getElementById('cover-date').textContent = data.date;
+
+  var totalProps = 0;
+  var sections = data.sections || [];
+  sections.forEach(function(s) { totalProps += (s.properties || []).length; });
+
+  document.getElementById('meta-total').textContent = totalProps;
+  document.getElementById('meta-types').textContent = sections.length;
+
+  // TOC
+  var tocList = document.getElementById('toc-list');
+  tocList.innerHTML = '';
+  var pageNum = 3;
+  sections.forEach(function(sec) {
+    var li = document.createElement('li');
+    li.className = 'toc-item';
+    var icon = ASSET_ICONS[sec.asset_type] || sec.icon || '\u{1F3E2}';
+    li.innerHTML =
+      '<span class="toc-icon">' + icon + '</span>' +
+      '<span class="toc-label">' + escapeHtml(sec.label) + '</span>' +
+      '<span class="toc-count">' + (sec.properties || []).length + '</span>' +
+      '<span class="toc-page-num">p.' + pageNum + '</span>';
+    tocList.appendChild(li);
+
+    // Each section can span multiple pages; estimate ~5 cards per page
+    var cardsPerPage = 5;
+    var numPages = Math.max(1, Math.ceil((sec.properties || []).length / cardsPerPage));
+    pageNum += numPages;
+  });
+
+  // Section pages
+  var container = document.getElementById('sections-container');
+  container.innerHTML = '';
+  var currentPageNum = 3;
+
+  sections.forEach(function(sec) {
+    var props = sec.properties || [];
+    var icon = ASSET_ICONS[sec.asset_type] || sec.icon || '\u{1F3E2}';
+    var cardsPerPage = 5;
+
+    for (var chunk = 0; chunk < props.length; chunk += cardsPerPage) {
+      var pageProps = props.slice(chunk, chunk + cardsPerPage);
+      var isFirst = chunk === 0;
+
+      var page = document.createElement('div');
+      page.className = 'page section-page';
+
+      var html = '';
+      if (isFirst) {
+        html +=
+          '<div class="section-header-bar">' +
+            '<span class="section-icon">' + icon + '</span>' +
+            '<span class="section-type-label">' + escapeHtml(sec.label) + '</span>' +
+            '<span class="section-count-badge">' + props.length + ' properties</span>' +
+          '</div>' +
+          '<div class="section-rule"></div>';
+      }
+
+      pageProps.forEach(function(p) {
+        var st = p.status || 'Sale';
+        html +=
+          '<div class="prop-card">' +
+            '<div class="prop-card-accent"></div>' +
+            '<div class="prop-card-body">' +
+              '<div class="prop-card-top">' +
+                '<div class="prop-card-title">' + escapeHtml(p.title || 'Unnamed Property') + '</div>' +
+                (p.reference ? '<div class="prop-card-ref">' + escapeHtml(p.reference) + '</div>' : '') +
+                '<span class="prop-card-status ' + statusClass(st) + '">' + escapeHtml(st) + '</span>' +
+              '</div>' +
+              (p.price ? '<div class="prop-card-price">' + escapeHtml(p.price) + '</div>' : '') +
+              (p.description ? '<div class="prop-card-desc">' + escapeHtml(p.description) + '</div>' : '') +
+              '<div class="prop-card-meta">' +
+                (p.agent ? '<div class="prop-card-meta-item"><strong>Agent:</strong> ' + escapeHtml(p.agent) + '</div>' : '') +
+                (p.sectors ? '<div class="prop-card-meta-item"><strong>Sectors:</strong> ' + escapeHtml(p.sectors) + '</div>' : '') +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      });
+
+      // Page footer
+      html +=
+        '<div class="page-footer">' +
+          '<div class="page-footer-brand">' + escapeHtml((brandName || 'RODSCHINSON').toUpperCase()) + '</div>' +
+          '<div class="page-footer-text">' + escapeHtml(sec.label) + '</div>' +
+          '<div class="page-footer-num">' + currentPageNum + '</div>' +
+        '</div>';
+
+      page.innerHTML = html;
+      container.appendChild(page);
+      currentPageNum++;
+    }
+  });
+
+  // Summary page
+  if (data.summary) {
+    var sumPage = document.createElement('div');
+    sumPage.className = 'page summary-page';
+    var sumHtml =
+      '<div class="summary-header">' + escapeHtml(data.summary.title || 'Portfolio Summary') + '</div>' +
+      '<div class="summary-rule"></div>' +
+      '<div class="summary-grid">';
+
+    (data.summary.stats || []).forEach(function(stat) {
+      sumHtml +=
+        '<div class="summary-stat">' +
+          '<div class="summary-stat-value">' + escapeHtml(stat.value) + '</div>' +
+          '<div class="summary-stat-label">' + escapeHtml(stat.label) + '</div>' +
+        '</div>';
+    });
+
+    sumHtml += '</div>';
+
+    if (data.disclaimer) {
+      sumHtml += '<div class="summary-disclaimer">' + escapeHtml(data.disclaimer) + '</div>';
+    }
+
+    sumHtml +=
+      '<div class="page-footer">' +
+        '<div class="page-footer-brand">' + escapeHtml((brandName || 'RODSCHINSON').toUpperCase()) + '</div>' +
+        '<div class="page-footer-text">Portfolio Summary</div>' +
+        '<div class="page-footer-num">' + currentPageNum + '</div>' +
+      '</div>';
+
+    sumPage.innerHTML = sumHtml;
+    container.appendChild(sumPage);
+  }
+
+  return true;
+};
+</script>
+
+</body>
+</html>
