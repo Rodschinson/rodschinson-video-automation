@@ -2540,13 +2540,14 @@ async def list_platforms():
 _METRICOOL_BASE = "https://app.metricool.com/api"
 
 # Metricool platform category → display name + impressions/views field key
+# Metricool response keys vary per platform — list all known field names for views/impressions
 _MC_PLATFORMS = {
-    "instagram": ("Instagram", ["igImpressions", "igReach"]),
-    "facebook":  ("Facebook",  ["fbImpressions", "fbReach"]),
-    "linkedin":  ("LinkedIn",  ["liImpressions", "liReach"]),
-    "youtube":   ("YouTube",   ["ytViews"]),
-    "tiktok":    ("TikTok",    ["ttViews"]),
-    "twitter":   ("Twitter",   ["twImpressions"]),
+    "instagram": ("Instagram", ["views", "reach", "igImpressions", "igReach", "Followers"]),
+    "facebook":  ("Facebook",  ["page_posts_impressions", "page_media_view", "pageViews", "fbImpressions", "fbReach"]),
+    "linkedin":  ("LinkedIn",  ["CompanyImpressions", "liImpressions", "liReach", "Followers"]),
+    "youtube":   ("YouTube",   ["ytViews", "views"]),
+    "tiktok":    ("TikTok",    ["ttViews", "views"]),
+    "twitter":   ("Twitter",   ["twImpressions", "impressions"]),
 }
 
 
@@ -3395,19 +3396,44 @@ async def _metricool_analytics(token: str, user_id: str, blog_id: str) -> dict |
                     if r.status_code != 200:
                         continue
                     d = r.json()
-                    views = next((int(d[k]) for k in view_keys if k in d and d[k]), 0)
-                    eng   = float(d.get("engagement") or d.get(f"{platform_id[:2]}Engagement") or 0)
+                    if not d or not isinstance(d, dict):
+                        continue
+                    # Pick the first non-zero views/impressions field
+                    views = 0
+                    for k in view_keys:
+                        v = d.get(k)
+                        if v and float(v) > 0:
+                            views = int(float(v))
+                            break
+                    # Engagement: try several known field names
+                    eng = 0.0
+                    for ek in ("engagement", "accounts_engaged", f"{platform_id[:2]}Engagement",
+                               "page_total_actions", "page_actions_post_reactions_total"):
+                        ev = d.get(ek)
+                        if ev and float(ev) > 0:
+                            eng = float(ev)
+                            break
+                    # Also grab followers if available
+                    followers = int(float(d.get("Followers") or d.get("Friends") or d.get("pageFollows") or 0))
                     if views > 0:
-                        platforms_out.append({"platform": display_name, "views": views})
+                        entry = {"platform": display_name, "views": views}
+                        if followers > 0:
+                            entry["followers"] = followers
+                        platforms_out.append(entry)
                         total_views += views
+                    elif followers > 0:
+                        # Even if no views, include platform with followers count
+                        platforms_out.append({"platform": display_name, "views": 0, "followers": followers})
                     if eng > 0:
                         total_eng += eng; eng_count += 1
-                except Exception:
+                except Exception as exc:
+                    log.warning("Metricool %s fetch error: %s", platform_id, exc)
                     continue
 
-            # 30-day timeline — try Instagram impressions as main signal
+            # 30-day timeline — try multiple metrics, pick first with data
             views30: list[dict] = []
-            timeline_metrics = ["igimpressions", "liImpressions", "fbImpressions"]
+            timeline_metrics = ["CompanyImpressions", "views", "reach",
+                                "page_posts_impressions", "igImpressions", "liImpressions", "fbImpressions"]
             for metric in timeline_metrics:
                 try:
                     r = await client.get(
@@ -3417,23 +3443,37 @@ async def _metricool_analytics(token: str, user_id: str, blog_id: str) -> dict |
                     if r.status_code != 200:
                         continue
                     raw = r.json()
+                    # Metricool returns [[date_str, value_str], ...] OR [{"date":..., "value":...}]
                     items = raw if isinstance(raw, list) else raw.get("data", [])
-                    if items:
-                        for item in items:
-                            dt_str = item.get("date") or item.get("day") or ""
-                            val    = int(item.get("value") or item.get("count") or 0)
-                            try:
-                                from datetime import datetime as _dt
-                                dt_fmt = _dt.strptime(str(dt_str)[:8], "%Y%m%d").strftime("%d %b")
-                            except Exception:
-                                dt_fmt = str(dt_str)
-                            views30.append({
-                                "date": dt_fmt, "views": val,
-                                "rodschinson": round(val * 0.62),
-                                "rachid":      round(val * 0.38),
-                            })
+                    if not items:
+                        continue
+                    from datetime import datetime as _dt
+                    parsed = []
+                    for item in items:
+                        if isinstance(item, (list, tuple)) and len(item) >= 2:
+                            dt_str, val_str = str(item[0]), item[1]
+                        elif isinstance(item, dict):
+                            dt_str = str(item.get("date") or item.get("day") or "")
+                            val_str = item.get("value") or item.get("count") or 0
+                        else:
+                            continue
+                        val = int(float(val_str)) if val_str else 0
+                        try:
+                            dt_fmt = _dt.strptime(dt_str[:8], "%Y%m%d").strftime("%d %b")
+                        except Exception:
+                            dt_fmt = dt_str
+                        parsed.append({
+                            "date": dt_fmt, "views": val,
+                            "rodschinson": round(val * 0.62),
+                            "rachid":      round(val * 0.38),
+                        })
+                    if parsed and any(p["views"] > 0 for p in parsed):
+                        views30 = parsed
                         break
-                except Exception:
+                    elif parsed and not views30:
+                        views30 = parsed  # keep as fallback, continue trying
+                except Exception as exc:
+                    log.warning("Metricool timeline %s error: %s", metric, exc)
                     continue
 
     except Exception as exc:
