@@ -5194,8 +5194,11 @@ _ODOO_MODEL = "property.details"
 _ODOO_FIELDS = [
     "id", "name", "asset_code", "responsable", "type", "type_prop",
     "sale_price", "description", "all_secteur_prop", "all_brand_prop",
-    "property_images_ids", "stage_id", "regle_nda", "create_date", "write_date",
+    "property_images_ids", "stage", "regle_nda", "create_date", "write_date",
 ]
+
+# Cache for property.type id→name mapping
+_property_type_cache: dict[int, str] = {}
 
 # ── Asset-type mapping (Odoo type_prop → template ID) ─────────────────────────
 ASSET_TYPE_MAP = {
@@ -5237,30 +5240,60 @@ async def _properties_save(entries: list[dict]) -> None:
         await f.write(json.dumps(entries, indent=2, default=str))
 
 
-def _map_odoo_property(raw: dict) -> dict:
+def _map_odoo_property(raw: dict, type_names: dict[int, str] | None = None) -> dict:
     """Transform a raw Odoo property.details record to our platform format."""
-    stage = raw.get("stage_id")
-    status_name = stage[1] if isinstance(stage, (list, tuple)) and len(stage) > 1 else str(stage or "")
-    status_map = {"On Sale": "Sale", "Reserved": "Reserved", "Sold": "Sold"}
+    # stage is a selection field with values like 'sale', 'sold', 'draft', etc.
+    stage_raw = raw.get("stage") or ""
+    status_map = {"sale": "Sale", "sold": "Sold", "booked": "Reserved", "on_lease": "Leased",
+                  "available": "Available", "draft": "Draft", "standby": "Standby"}
+    status = status_map.get(stage_raw, stage_raw.capitalize() if stage_raw else "Sale")
 
-    type_prop_raw = (raw.get("type_prop") or "").strip().lower()
-    asset_info = ASSET_TYPE_MAP.get(type_prop_raw, {"icon": "🏢", "label": type_prop_raw or "Property", "template": "teaser_building"})
+    # type_prop is many2many → list of IDs. Resolve first ID to a name for template matching.
+    type_ids = raw.get("type_prop") or []
+    type_name_list = [type_names.get(tid, "") for tid in type_ids] if type_names else []
+    # Pick the best type for template matching (first recognized keyword)
+    asset_type_key = "building"  # default
+    for tname in type_name_list:
+        tlow = tname.lower()
+        for key in ASSET_TYPE_MAP:
+            if key in tlow:
+                asset_type_key = key
+                break
+        else:
+            continue
+        break
+
+    asset_info = ASSET_TYPE_MAP.get(asset_type_key, {"icon": "🏢", "label": "Property", "template": "teaser_building"})
+    type_labels = ", ".join(type_name_list) if type_name_list else asset_info["label"]
+
+    # Format price nicely
+    price_raw = raw.get("sale_price") or 0
+    if isinstance(price_raw, (int, float)) and price_raw > 0:
+        if price_raw >= 1_000_000:
+            price_str = f"€{price_raw/1_000_000:.1f}M"
+        else:
+            price_str = f"€{price_raw:,.0f}"
+    else:
+        price_str = str(price_raw) if price_raw else ""
 
     return {
         "odoo_id":     raw.get("id"),
         "title":       raw.get("name") or "",
         "reference":   raw.get("asset_code") or "",
-        "asset_type":  type_prop_raw or "building",
-        "asset_label": asset_info["label"],
+        "asset_type":  asset_type_key,
+        "asset_label": type_labels,
         "asset_icon":  asset_info["icon"],
         "template":    asset_info["template"],
-        "price":       raw.get("sale_price") or "",
+        "price":       price_str,
+        "price_raw":   price_raw,
         "description": raw.get("description") or "",
         "sectors":     raw.get("all_secteur_prop") or "",
         "brands":      raw.get("all_brand_prop") or "",
         "agent":       raw.get("responsable") or "",
         "property_type": raw.get("type") or "",
-        "status":      status_map.get(status_name, "Sale"),
+        "type_ids":    type_ids,
+        "type_names":  type_name_list,
+        "status":      status,
         "nda":         raw.get("regle_nda") or "",
         "image_ids":   raw.get("property_images_ids") or [],
         "created_at":  raw.get("create_date") or "",
@@ -5268,66 +5301,74 @@ def _map_odoo_property(raw: dict) -> dict:
     }
 
 
-async def _odoo_authenticate(client: httpx.AsyncClient) -> dict | None:
-    """Authenticate with Odoo, returns cookies dict or None."""
-    payload = {
-        "jsonrpc": "2.0", "method": "call", "id": 1,
-        "params": {"db": _ODOO_DB, "login": _ODOO_USER, "password": _ODOO_PASS},
-    }
+async def _odoo_get_uid() -> int | None:
+    """Authenticate with Odoo via XML-RPC (supports API keys). Returns uid."""
+    import xmlrpc.client
+    def _auth():
+        common = xmlrpc.client.ServerProxy(f"{_ODOO_URL}/xmlrpc/2/common", allow_none=True)
+        uid = common.authenticate(_ODOO_DB, _ODOO_USER, _ODOO_PASS, {})
+        return uid
     try:
-        res = await client.post(f"{_ODOO_URL}/web/session/authenticate", json=payload, timeout=15)
-        data = res.json()
-        if data.get("error"):
-            log.error("Odoo auth error: %s", data["error"].get("message", ""))
-            return None
-        result = data.get("result", {})
-        if not result.get("uid"):
-            log.error("Odoo auth: no uid in response")
-            return None
-        # Return cookies for subsequent requests
-        return dict(res.cookies)
+        uid = await asyncio.to_thread(_auth)
+        if not uid:
+            log.error("Odoo XML-RPC auth failed: no uid returned")
+        return uid
     except Exception as e:
-        log.error("Odoo auth exception: %s", e)
+        log.error("Odoo XML-RPC auth error: %s", e)
         return None
+
+
+async def _odoo_search_read(uid: int, model: str, domain: list, fields: list, limit: int = 200) -> list:
+    """Fetch records via Odoo XML-RPC object endpoint."""
+    import xmlrpc.client
+    def _fetch():
+        models = xmlrpc.client.ServerProxy(f"{_ODOO_URL}/xmlrpc/2/object", allow_none=True)
+        return models.execute_kw(
+            _ODOO_DB, uid, _ODOO_PASS,
+            model, 'search_read',
+            [domain],
+            {'fields': fields, 'limit': limit},
+        )
+    return await asyncio.to_thread(_fetch)
 
 
 @app.post("/api/odoo/sync-properties")
 async def sync_properties_from_odoo():
-    """Fetch properties from Odoo (stage = On Sale) and cache locally."""
+    """Fetch properties from Odoo (stage = sale) and cache locally."""
     if not _ODOO_PASS:
         raise HTTPException(503, "Odoo credentials not configured (ODOO_API_KEY)")
 
-    async with httpx.AsyncClient() as client:
-        cookies = await _odoo_authenticate(client)
-        if not cookies:
-            raise HTTPException(502, "Failed to authenticate with Odoo")
+    uid = await _odoo_get_uid()
+    if not uid:
+        raise HTTPException(502, "Failed to authenticate with Odoo — check ODOO_API_KEY")
 
-        payload = {
-            "jsonrpc": "2.0", "method": "call", "id": 2,
-            "params": {
-                "model": _ODOO_MODEL,
-                "domain": [["stage_id.name", "=", "On Sale"]],
-                "fields": _ODOO_FIELDS,
-                "limit": 200,
-            },
-        }
-        try:
-            res = await client.post(
-                f"{_ODOO_URL}/web/dataset/search_read",
-                json=payload, cookies=cookies, timeout=30,
+    try:
+        # Fetch properties in "sale" stage
+        records = await _odoo_search_read(
+            uid, _ODOO_MODEL,
+            [["stage", "=", "sale"]],
+            _ODOO_FIELDS, limit=200,
+        )
+
+        # Resolve property.type many2many IDs to names
+        all_type_ids = set()
+        for r in records:
+            all_type_ids.update(r.get("type_prop") or [])
+        type_names: dict[int, str] = {}
+        if all_type_ids:
+            type_records = await _odoo_search_read(
+                uid, "property.type",
+                [["id", "in", list(all_type_ids)]],
+                ["id", "name"], limit=500,
             )
-            data = res.json()
-        except Exception as e:
-            log.error("Odoo fetch error: %s", e)
-            raise HTTPException(502, f"Failed to fetch from Odoo: {e}")
+            type_names = {t["id"]: t["name"] for t in type_records}
+            _property_type_cache.update(type_names)
 
-    if data.get("error"):
-        msg = data["error"].get("message", "Unknown Odoo error")
-        log.error("Odoo search_read error: %s", msg)
-        raise HTTPException(502, f"Odoo error: {msg}")
+    except Exception as e:
+        log.error("Odoo fetch error: %s", e)
+        raise HTTPException(502, f"Failed to fetch from Odoo: {e}")
 
-    records = data.get("result", {}).get("records", [])
-    properties = [_map_odoo_property(r) for r in records]
+    properties = [_map_odoo_property(r, type_names) for r in records]
     await _properties_save(properties)
     log.info("Synced %d properties from Odoo", len(properties))
     return {"synced": len(properties), "properties": properties}
