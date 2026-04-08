@@ -1519,8 +1519,8 @@ Rules:
 - metrics: include 3-6 key metrics from the provided data (price, surface, yield, year, location, etc.)
 - highlights: 3-6 crisp bullet points about the property's strengths
 - description: professional, investor-grade language — no hype
-- All text in {lang_label}
-- Return ONLY valid JSON, no markdown
+- CRITICAL: ALL JSON KEYS must remain in English exactly as shown above. Only translate TEXT VALUES into {lang_label}.
+- Return ONLY the raw JSON object, no markdown fences, no extra text.
 """
 
             async with _claude_semaphore:
@@ -1663,8 +1663,8 @@ Rules:
 - Professional, institutional tone
 - The title should describe the portfolio content (e.g. 'Property Portfolio', 'Investment Opportunities')
 - NEVER include brand names like 'Rodschinson' in the title or subtitle
-- All text in {lang_label}
-- Return ONLY valid JSON, no markdown
+- ALL JSON KEYS must remain in English exactly as shown. Only translate TEXT VALUES into {lang_label}.
+- Return ONLY the raw JSON object, no markdown fences, no extra text.
 """
             async with _claude_semaphore:
                 async with httpx.AsyncClient() as client:
@@ -1857,8 +1857,9 @@ RULES:
 - comparables: 2-4 comparable transactions
 - weights across all valuation_methods must sum to 1.0
 - Be realistic: if data is limited, note lower confidence and wider value ranges
-- All text in {lang_label}
-- Return ONLY valid JSON, no markdown
+- CRITICAL: ALL JSON KEYS must remain EXACTLY as shown in the schema above (English keys like "property_name", "executive_summary", "valuation_methods", etc.). NEVER translate the JSON keys.
+- Only translate the TEXT VALUES (strings) into {lang_label}
+- Return ONLY the raw JSON object. No markdown fences, no explanatory text before or after, no ```json blocks. Just the {{ and }} with content between them.
 """
 
             log.info("[%s] Calling Claude API for valuation (key: %s...)", job_id[:8], api_key[:8] if api_key else "MISSING")
