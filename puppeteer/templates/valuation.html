@@ -13,7 +13,7 @@
   --heading: 'Montserrat', sans-serif; --body: 'DM Sans', sans-serif;
 }
 html, body { width: 794px; overflow-x: hidden; background: var(--white); font-family: var(--body); color: var(--navy); -webkit-font-smoothing: antialiased; }
-.page { width: 794px; min-height: 1123px; position: relative; page-break-after: always; overflow: hidden; }
+.page { width: 794px; min-height: 1123px; position: relative; page-break-after: always; }
 .page:last-child { page-break-after: auto; }
 
 /* ── COVER ── */
@@ -35,7 +35,7 @@ html, body { width: 794px; overflow-x: hidden; background: var(--white); font-fa
 .cover-footer-text { font-family: var(--body); font-size: 8px; color: rgba(255,255,255,0.25); }
 
 /* ── CONTENT PAGES ── */
-.content-page { padding: 48px 52px 60px; display: flex; flex-direction: column; background: var(--white); }
+.content-page { padding: 48px 52px 32px; display: flex; flex-direction: column; background: var(--white); }
 .page-title { font-family: var(--heading); font-weight: 800; font-size: 22px; color: var(--navy); margin-bottom: 4px; }
 .page-rule { width: 60px; height: 3px; background: linear-gradient(90deg, var(--sky), var(--navy)); border-radius: 2px; margin-bottom: 24px; }
 .section-label { font-family: var(--heading); font-weight: 700; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--sky); margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }
@@ -136,7 +136,7 @@ html, body { width: 794px; overflow-x: hidden; background: var(--white); font-fa
 .disclaimer-box { padding: 14px 16px; background: rgba(8,49,111,0.02); border-left: 3px solid var(--sky); border-radius: 0 6px 6px 0; font-family: var(--body); font-size: 8.5px; line-height: 1.6; color: var(--muted); }
 
 /* ── PAGE FOOTER ── */
-.page-footer { position: absolute; bottom: 24px; left: 52px; right: 52px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(8,49,111,0.06); padding-top: 8px; }
+.page-footer { margin-top: auto; padding: 8px 0 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(8,49,111,0.06); }
 .page-footer-brand { font-family: var(--heading); font-weight: 700; font-size: 7px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--navy); }
 .page-footer-text { font-family: var(--body); font-size: 7px; color: var(--muted); }
 .page-footer-num { font-family: var(--heading); font-weight: 600; font-size: 8px; color: var(--sky); }
