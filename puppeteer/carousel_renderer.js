@@ -59,6 +59,7 @@ function parseArgs() {
     brandAccent:   get('--brand-accent')  || '#C8A96E',
     brandName:     get('--brand-name')    || 'Rodschinson',
     brandLogo:     get('--brand-logo')    || null,
+    brandBg:       get('--brand-bg')      || null,
   };
 }
 
@@ -74,19 +75,22 @@ async function renderSlide(browser, slideData, templatePath, outputPath, brand) 
     // ── Inject brand colours + identity before loadScene() ──────────────────
     await page.evaluate((b) => {
       const root = document.documentElement;
-      // Override all common colour variable names used across templates
+      // Inject brand colours as CSS variables
+      // Primary = accent/highlight colour (NOT background)
+      // Background stays as template default unless brand has explicit bg
       const pairs = [
         ['--brand-primary', b.primary], ['--brand-accent', b.accent],
         ['--brand-text',    b.text],
-        // Template-specific aliases
-        ['--blue',          b.primary], ['--dark-blue',   b.primary],
-        ['--blue2',         b.primary], ['--bg',          b.primary],
-        ['--sky',           b.accent],  ['--sky-blue',    b.accent],
-        ['--gold',          b.accent],  ['--accent',      b.accent],
+        // Accent aliases — brand primary is the accent/highlight colour
+        ['--sky',           b.primary], ['--sky-blue',    b.primary],
+        ['--gold',          b.primary], ['--accent',      b.primary],
       ];
+      // Only override background if brand has an explicit backgroundColor
+      if (b.bg && b.bg !== b.primary) {
+        pairs.push(['--bg', b.bg], ['--dark-blue', b.bg], ['--blue', b.bg], ['--blue2', b.bg]);
+        document.body.style.background = b.bg;
+      }
       pairs.forEach(([k,v]) => root.style.setProperty(k, v));
-      document.body.style.background = b.primary;
-      document.body.style.color      = b.text;
       window.__brand = b;
     }, brand);
 
@@ -135,22 +139,38 @@ async function renderSlide(browser, slideData, templatePath, outputPath, brand) 
 
     await new Promise(r => setTimeout(r, 80));
 
-    // Force all animated elements to final state
+    // Force animated elements to visible state (without destroying layout)
     await page.evaluate(() => {
       const scene = document.getElementById('scene');
       if (!scene) return;
       scene.classList.add('active');
       scene.classList.add('anim');
+      // Only fix opacity for elements that were hidden for animation entrance
       scene.querySelectorAll('*').forEach(el => {
+        const cs = getComputedStyle(el);
         el.style.transition = 'none';
-        el.style.opacity    = '1';
-        el.style.transform  = 'none';
         el.style.animationPlayState = 'paused';
+        // Only force opacity if element was hidden (animated entrance)
+        if (parseFloat(cs.opacity) < 0.01) {
+          el.style.opacity = '1';
+        }
+        // Only reset translateY entrance animations, preserve other transforms
+        if (cs.transform && cs.transform !== 'none' && cs.transform.includes('matrix')) {
+          const m = cs.transform.match(/matrix\(([^)]+)\)/);
+          if (m) {
+            const vals = m[1].split(',').map(Number);
+            // If translateY > 20px, it's likely an entrance animation
+            if (Math.abs(vals[5]) > 20) {
+              el.style.transform = 'none';
+            }
+          }
+        }
       });
       // Width-based transitions (divider lines)
-      scene.querySelectorAll('.divider, .rule, .cta-divider, .cta-rule').forEach(el => {
-        const cs = getComputedStyle(el);
-        if (!el.style.width) el.style.width = '80px';
+      scene.querySelectorAll('.divider, .rule, .cta-divider, .cta-rule, .t-rule').forEach(el => {
+        if (!el.style.width || el.style.width === '0px' || el.style.width === '0') {
+          el.style.width = '80px';
+        }
       });
     });
 
@@ -207,6 +227,7 @@ async function main() {
   const brand = {
     primary: args.brandPrimary,
     accent:  args.brandAccent,
+    bg:      args.brandBg || null,
     text:    contrastText(args.brandPrimary),
     name:    args.brandName,
     initial: (args.brandName || 'R').charAt(0).toUpperCase(),
