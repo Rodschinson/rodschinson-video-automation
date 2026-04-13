@@ -2269,17 +2269,23 @@ def health():
 # ── Generate ───────────────────────────────────────────────────────────────────
 
 @app.post("/api/generate", status_code=202)
-async def generate(request: Request, payload: str = Form(...), logo: Optional[UploadFile] = File(None)):
+async def generate(request: Request):
     _check_rate_limit(request.client.host if request.client else "unknown")
+    # Parse multipart with raised limits (default 1MB per part is too small for base64 uploads)
+    form = await request.form(max_files=100, max_fields=100, max_part_size=100 * 1024 * 1024)  # 100MB per part
+    payload_str = form.get("payload")
+    if not payload_str:
+        raise HTTPException(422, "Missing payload field")
     try:
-        data = json.loads(payload)
+        data = json.loads(payload_str)
     except json.JSONDecodeError:
         raise HTTPException(422, "Invalid payload JSON")
     if not data.get("subject", "").strip():
         raise HTTPException(422, "subject is required")
 
+    logo = form.get("logo")
     logo_path: Path | None = None
-    if logo and logo.filename:
+    if logo and hasattr(logo, "filename") and logo.filename:
         logo_dest = OUTPUT / "images" / f"logo_{uuid.uuid4().hex[:8]}_{logo.filename}"
         logo_dest.parent.mkdir(parents=True, exist_ok=True)
         async with aiofiles.open(logo_dest, "wb") as f:
