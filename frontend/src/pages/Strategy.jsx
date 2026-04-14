@@ -15,7 +15,7 @@ const PILLAR_COLORS = {
 const CONTENT_TYPES = ['video', 'reel', 'carousel', 'image_post', 'story']
 const FORMATS       = ['16:9', '9:16', '1:1', '4:5']
 const LANGUAGES     = ['EN', 'FR', 'NL']
-const TEMPLATES     = ['rodschinson_premium', 'news_reel', 'tech_data', 'corporate_minimal', 'carousel_bold', 'carousel_clean', 'reel_bold', 'reel_minimal']
+const TEMPLATES     = ['ai_design', 'rodschinson_premium', 'news_reel', 'tech_data', 'corporate_minimal', 'carousel_bold', 'carousel_clean', 'reel_bold', 'reel_minimal']
 
 // Map platform → default content type + format
 const PLATFORM_DEFAULTS = {

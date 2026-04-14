@@ -1229,7 +1229,15 @@ Hard rules — violations will crash the render pipeline with no recovery:
                     "tone":  "Professional real estate investor voice. Each slide is crisp and visual. Lead with a bold insight, back it with a key stat. CTA is action-oriented.",
                     "schema": "standard",
                 },
+                "carousel_rodschinson_premium": {
+                    "style": "Rodschinson navy (#08316F → #061F47 gradient) with sky blue (#00B6FF) and gold (#C8A96E) accents. Playfair Display serif headlines, Montserrat body. RODSCHINSON wordmark visible on every slide. Stat presented as a highlighted card in the lower third of content slides — stat is MANDATORY.",
+                    "tone":  "Institutional investment voice: authoritative, concise, data-anchored. Headlines are sharp statements (6–9 words). Body is 2 sentences max. Stat field is required and must be a real, specific number with context.",
+                    "schema": "standard",
+                },
             }
+            # Alias: frontend sends 'rodschinson_premium' (the brand template id) — map it to the carousel file.
+            _TEMPLATE_ALIAS = {"rodschinson_premium": "carousel_rodschinson_premium"}
+            template = _TEMPLATE_ALIAS.get(template, template)
             tmpl_hint = CAROUSEL_HINTS.get(template, CAROUSEL_HINTS["carousel_bold"])
 
             # CRE template uses richer slide types with dedicated components
@@ -1336,49 +1344,189 @@ Rules:
             _job_update(job, status="running", step="Rendering slides", progress=45)
             await _save_job(job)
 
-            # Resolve carousel template (default to carousel_bold)
-            carousel_templates = {"carousel_bold", "carousel_clean", "carousel_minimal", "carousel_data", "carousel_cre", "carousel_realestate"}
-            carousel_tmpl = template if template in carousel_templates else "carousel_bold"
-            # Also accept custom AI-generated carousel templates
-            tmpl_file = PUPPET / "templates" / f"{carousel_tmpl}.html"
-            if not tmpl_file.exists():
-                carousel_tmpl = "carousel_bold"
+            # ── AI DESIGN MODE ────────────────────────────────────────────────
+            # When template == 'ai_design', Claude designs each slide as a full
+            # custom HTML page (with brand constraints) and we render via
+            # ai_image_renderer.js — same path as image_post but per slide.
+            if template == "ai_design":
+                lang_label = {"EN": "English", "FR": "French", "NL": "Dutch"}.get(language.upper(), "English")
+                heading_font = brand_heading_font or "Inter"
+                body_font = brand_body_font or "Inter"
+                slide_pngs = []
+                total_slides = len(_slides)
 
-            # Render slides via Puppeteer carousel renderer
-            # Semaphore limits concurrent Chrome instances to prevent Railway OOM.
-            async with _render_semaphore:
-                _carousel_cmd = [
-                    "node", str(PUPPET / "carousel_renderer.js"),
-                    "--slides", str(carousel_out),
-                    "--template", carousel_tmpl,
-                    "--out", str(carousel_dir),
-                    "--prefix", job_prefix,
-                    "--brand-primary",  brand_primary,
-                    "--brand-accent",   brand_accent,
-                    "--brand-name",     brand_display,
-                    "--brand-bg",       brand_bg,
-                    "--heading-font",   brand_heading_font,
-                    "--body-font",      brand_body_font,
-                    "--heading-size",   brand_heading_size,
-                    "--body-size",      brand_body_size,
-                    "--caption-size",   brand_caption_size,
-                    "--heading-weight", brand_heading_wt,
-                    "--body-weight",    brand_body_wt,
-                ]
-                if logo_path:
-                    _carousel_cmd += ["--brand-logo", str(logo_path)]
-                await step("Rendering slides", 70, _carousel_cmd, cwd=PUPPET)
+                for sd in _slides:
+                    s_idx   = int(sd.get("index", len(slide_pngs) + 1))
+                    s_type  = sd.get("type", "content")
+                    s_head  = sd.get("headline", "")
+                    s_sub   = sd.get("subheadline", sd.get("body", ""))
+                    s_body  = sd.get("body", "")
+                    s_stat  = sd.get("stat", "")
+                    s_cta   = sd.get("cta", "Swipe →")
+                    s_tags  = sd.get("hashtags", []) or []
 
-            # Collect rendered PNGs — renderer outputs {prefix}_01.png … {prefix}_NN.png
-            slide_pngs = sorted(carousel_dir.glob(f"{job_prefix}_*.png"))
+                    # Build a content brief Claude will turn into an HTML page
+                    if s_type == "title":
+                        brief = (
+                            f"COVER SLIDE (slide 1 of {total_slides}). HEADLINE: {s_head}. "
+                            f"SUBTITLE: {s_sub}. CTA HINT: {s_cta}. "
+                            "Design as a hero opener — large headline, brand wordmark, "
+                            "swipe indicator. Set the tone for the carousel."
+                        )
+                    elif s_type == "cta":
+                        brief = (
+                            f"FINAL CTA SLIDE (slide {s_idx} of {total_slides}). "
+                            f"HEADLINE: {s_head}. BODY: {s_body}. "
+                            f"HASHTAGS: {' '.join(s_tags)}. "
+                            "Design as a call-to-action: centered headline, contact line "
+                            "(rodschinson.com · +32 2 550 36 87), and the hashtags as pills."
+                        )
+                    else:
+                        brief = (
+                            f"INSIGHT SLIDE {s_idx} of {total_slides}. "
+                            f"HEADLINE: {s_head}. BODY: {s_body}. STAT: {s_stat}. "
+                            "Design with a numbered tag, headline, supporting body, "
+                            "and a visually anchored stat (large number with context)."
+                        )
 
-            _job_update(job, status="running", step="Exporting slides", progress=90)
-            await _save_job(job)
+                    ai_slide_prompt = f"""You are a senior brand designer creating ONE slide in a 1080x1080 LinkedIn carousel.
 
-            # output_file points to the JSON (used by carousel-slides endpoint)
-            output_file = str(carousel_out)
-            # Store PNG paths for the library entry
-            slide_png_paths = [str(p) for p in slide_pngs]
+BRAND: {brand_display}
+BRAND COLORS (use ONLY these plus white/light grays):
+- Primary: {brand_primary}
+- Accent: {brand_accent}
+- Background: {brand_bg or brand_primary}
+TYPOGRAPHY: heading {heading_font}, body {body_font}.
+
+CAROUSEL TOPIC: {subject}
+LANGUAGE: {lang_label}
+SLIDE COUNTER: {s_idx} / {total_slides}
+
+THIS SLIDE:
+{brief}
+
+YOUR TASK: produce a complete, self-contained HTML page that renders as ONE polished 1080x1080 slide.
+
+Requirements:
+- DOCTYPE + html + head + body
+- <body> sized exactly 1080x1080px (CSS width/height, overflow:hidden)
+- Embed Google Fonts via @import for {heading_font} and {body_font}
+- All graphics inline as SVG (no external images)
+- Show the brand wordmark "{brand_display}" in a header zone, plus the slide counter "{s_idx:02d} / {total_slides:02d}" subtly placed
+- Use ONLY brand primary / accent / background plus white & light grays
+- Real typography hierarchy. No empty middle — fill the canvas with intentional layout (graphic, stat card, divider, decorative SVG, etc.)
+- Visually consistent with a premium investment-house aesthetic — restrained, editorial, $5000-agency quality
+- All copy strictly in {lang_label}
+
+Output ONLY raw HTML. No markdown fences, no explanation, nothing else."""
+
+                    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+                    resp = None
+                    for _attempt in range(3):
+                        try:
+                            async with _claude_semaphore:
+                                async with httpx.AsyncClient() as client:
+                                    resp = await client.post(
+                                        "https://api.anthropic.com/v1/messages",
+                                        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                                        json={"model": "claude-sonnet-4-6", "max_tokens": 8000,
+                                              "messages": [{"role": "user", "content": ai_slide_prompt}]},
+                                        timeout=180,
+                                    )
+                                    if resp.status_code == 200:
+                                        break
+                                    if resp.status_code in (429, 503, 529):
+                                        await asyncio.sleep(6 * (_attempt + 1))
+                                        continue
+                                    raise RuntimeError(f"Claude API error {resp.status_code}: {resp.text[:300]}")
+                        except httpx.TimeoutException:
+                            if _attempt < 2: continue
+                            raise
+                    if resp is None or resp.status_code != 200:
+                        raise RuntimeError(f"AI slide {s_idx}: generation failed")
+
+                    html_raw = resp.json()["content"][0]["text"].strip()
+                    if html_raw.startswith("```"):
+                        html_raw = re.sub(r"^```[a-z]*\n?", "", html_raw)
+                        html_raw = re.sub(r"\n?```\s*$", "", html_raw).strip()
+                    doc_start = max(html_raw.find("<!DOCTYPE"), html_raw.find("<html"))
+                    if doc_start > 0:
+                        html_raw = html_raw[doc_start:]
+
+                    html_path = carousel_dir / f"{job_prefix}_{s_idx:02d}.html"
+                    html_path.write_text(html_raw, encoding="utf-8")
+                    png_path  = carousel_dir / f"{job_prefix}_{s_idx:02d}.png"
+
+                    async with _render_semaphore:
+                        render_cmd = [
+                            "node", str(PUPPET / "ai_image_renderer.js"),
+                            "--html", str(html_path),
+                            "--output", str(png_path),
+                            "--format", "1x1",
+                        ]
+                        code, out, err = await _run(render_cmd, cwd=PUPPET, timeout=60, job_id=job_id)
+                        if code != 0:
+                            raise RuntimeError(f"AI slide {s_idx} render failed: {err[-300:]}")
+                    slide_pngs.append(png_path)
+                    _job_update(job, step=f"Designed slide {s_idx}/{total_slides}",
+                                progress=45 + int(45 * s_idx / max(total_slides, 1)))
+                    await _save_job(job)
+
+                output_file = str(carousel_out)
+                slide_png_paths = [str(p) for p in slide_pngs]
+                _job_update(job, status="running", step="Exporting slides", progress=92)
+                await _save_job(job)
+                # Skip the standard renderer below
+                # NOTE: control falls through to end of carousel branch via early-skip
+                # by setting a flag we check after the standard path.
+                _ai_design_done = True
+            else:
+                _ai_design_done = False
+
+            if not _ai_design_done:
+                # Resolve carousel template (default to carousel_bold)
+                carousel_templates = {"carousel_bold", "carousel_clean", "carousel_minimal", "carousel_data", "carousel_cre", "carousel_realestate", "carousel_rodschinson_premium"}
+                carousel_tmpl = template if template in carousel_templates else "carousel_bold"
+                # Also accept custom AI-generated carousel templates
+                tmpl_file = PUPPET / "templates" / f"{carousel_tmpl}.html"
+                if not tmpl_file.exists():
+                    carousel_tmpl = "carousel_bold"
+
+                # Render slides via Puppeteer carousel renderer
+                # Semaphore limits concurrent Chrome instances to prevent Railway OOM.
+                async with _render_semaphore:
+                    _carousel_cmd = [
+                        "node", str(PUPPET / "carousel_renderer.js"),
+                        "--slides", str(carousel_out),
+                        "--template", carousel_tmpl,
+                        "--out", str(carousel_dir),
+                        "--prefix", job_prefix,
+                        "--brand-primary",  brand_primary,
+                        "--brand-accent",   brand_accent,
+                        "--brand-name",     brand_display,
+                        "--brand-bg",       brand_bg,
+                        "--heading-font",   brand_heading_font,
+                        "--body-font",      brand_body_font,
+                        "--heading-size",   brand_heading_size,
+                        "--body-size",      brand_body_size,
+                        "--caption-size",   brand_caption_size,
+                        "--heading-weight", brand_heading_wt,
+                        "--body-weight",    brand_body_wt,
+                    ]
+                    if logo_path:
+                        _carousel_cmd += ["--brand-logo", str(logo_path)]
+                    await step("Rendering slides", 70, _carousel_cmd, cwd=PUPPET)
+
+                # Collect rendered PNGs — renderer outputs {prefix}_01.png … {prefix}_NN.png
+                slide_pngs = sorted(carousel_dir.glob(f"{job_prefix}_*.png"))
+
+                _job_update(job, status="running", step="Exporting slides", progress=90)
+                await _save_job(job)
+
+                # output_file points to the JSON (used by carousel-slides endpoint)
+                output_file = str(carousel_out)
+                # Store PNG paths for the library entry
+                slide_png_paths = [str(p) for p in slide_pngs]
 
         # ════════════════════════════════════════════════════════════════════════
         # IMAGE POST  —  Claude generates full HTML, render to PNG
