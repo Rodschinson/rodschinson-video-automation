@@ -4,7 +4,8 @@
     "custom_reel_new": "custom/custom_reel_new.html",
     "custom_cofoundies": "custom/custom_cofoundies.html",
     "custom_cofoundies_reel": "custom/custom_cofoundies_reel.html",
-    "custom_jgfjgh": "custom/custom_jgfjgh.html"
+    "custom_jgfjgh": "custom/custom_jgfjgh.html",
+    "custom_uyfi": "custom/custom_uyfi.html"
   },
   "allowed_types": {
     "custom_test": [
@@ -51,6 +52,13 @@
       "process_steps",
       "quote_card",
       "bar_chart"
+    ],
+    "custom_uyfi": [
+      "title_card",
+      "text_bullets",
+      "cta_screen",
+      "bar_chart",
+      "split_screen"
     ]
   }
 }
