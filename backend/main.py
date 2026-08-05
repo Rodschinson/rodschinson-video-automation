@@ -346,7 +346,7 @@ VALID_STATUSES = {"Draft", "Ready", "Approved", "Scheduled", "Published"}
 
 # ── Retention: weekly purge of generated files (keeps the Library record) ────────
 RETENTION_DAYS = int(os.getenv("RETENTION_DAYS", "7"))
-_PROTECTED_STATUSES = {"Approved", "Scheduled", "Published"}  # never auto-purged
+_PROTECTED_STATUSES = {"Ready", "Approved", "Scheduled", "Published"}  # never auto-purged
 VALID_SLOTS    = {"morning", "noon", "afternoon", "evening"}
 
 # ── Rate limiter for /api/generate ────────────────────────────────────────────

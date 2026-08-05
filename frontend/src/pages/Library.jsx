@@ -977,9 +977,11 @@ function ModalActions({ item, onStatusChange, onRegenerate, onDelete, onClose })
         <span style={{ color: 'var(--cs-text-muted)', fontSize: 12 }}>{fmtDate(item.created_at)}</span>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={onRegenerate} style={{ padding: '7px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid var(--cs-border)', background: 'transparent', color: 'var(--cs-text-sub)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}><RefreshCw size={13} /> Regenerate</button>
-          {isLongTeaser && (
+          {isLongTeaser && (item.files_purged ? (
+            <button disabled title="Files removed by retention cleanup — the source is gone, so this teaser can no longer be edited. Regenerate it from the original documents." style={{ padding: '7px 14px', borderRadius: 6, cursor: 'not-allowed', border: '1px solid var(--cs-border)', background: 'transparent', color: 'var(--cs-text-muted)', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5, opacity: 0.6 }}><Pencil size={13} /> Edit (archived)</button>
+          ) : (
             <button onClick={() => { onClose(); navigate(`/teaser-editor/${item.job_id}`) }} style={{ padding: '7px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid var(--cs-gold-soft)', background: 'var(--cs-gold-soft)', color: 'var(--cs-gold)', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Pencil size={13} /> Edit teaser</button>
-          )}
+          ))}
           <button onClick={() => setShowRepurpose(true)} style={{ padding: '7px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid var(--cs-accent-line)', background: 'var(--cs-accent-soft)', color: 'var(--cs-accent)', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}><RefreshCcw size={13} /> Repurpose</button>
           {item.output_file && (
             <button onClick={() => downloadAsset(`/api/download/${item.job_id}`).catch(e=>alert(e.message))} style={{ padding: '7px 14px', borderRadius: 6, cursor: 'pointer', border: '1px solid rgba(22,163,74,0.3)', background: 'rgba(22,163,74,0.06)', color: '#16a34a', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Download size={13} /> Download</button>

@@ -990,6 +990,14 @@ export default function TeaserEditor() {
                   </div>
                   {textBlock([['google_maps_url', 'Google Maps link (https://)'], ['map_link_text', '"View on Maps" link text'], ['boundary_caption', 'Boundary caption']], k => data[k], (k, v) => setField(k, v))}
                 </div>
+
+                {/* Editable titles for the Location & Aerial pages (was auto-derived
+                    from the teaser name and got cut when long). Empty = hidden. */}
+                <div style={{ marginBottom: 22 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, marginBottom: 8 }}>Location &amp; Aerial page titles</div>
+                  <p style={{ fontSize: 11, color: muted, margin: '0 0 8px' }}>Shown on the Location and Aerial pages. Leave empty to hide the title — the page keeps its section label. If untouched, it auto-fills from the location / address.</p>
+                  {textBlock([['loc_title', 'Location page title'], ['aerial_title', 'Aerial page title']], k => data[k], (k, v) => setField(k, v))}
+                </div>
               </div>
             )}
             {activeId === 'plans' && (

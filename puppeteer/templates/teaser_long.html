@@ -273,7 +273,7 @@ html,body{width:1123px;background:#fff;color:#111;font-family:'Montserrat',sans-
   width:280px;display:flex;flex-direction:column;gap:14px;padding:8px 0;justify-content:center;
 }
 .aerial .a-side .a-eyebrow{font-family:'Montserrat';font-weight:700;font-size:10px;letter-spacing:0.32em;color:var(--cyan);text-transform:uppercase}
-.aerial .a-side .a-title{font-family:'Montserrat';font-weight:800;font-size:22px;color:var(--navy);line-height:1.2}
+.aerial .a-side .a-title{font-family:'Montserrat';font-weight:800;font-size:22px;color:var(--navy);line-height:1.2;overflow-wrap:anywhere;word-break:break-word;hyphens:auto}
 .aerial .a-side .a-rule{width:36px;height:2px;background:var(--cyan)}
 .aerial .a-side .a-row{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-top:1px solid var(--border)}
 .aerial .a-side .a-row .k{font-size:10px;color:var(--grey-text);letter-spacing:0.12em;text-transform:uppercase;font-weight:600}
@@ -353,7 +353,7 @@ html,body{width:1123px;background:#fff;color:#111;font-family:'Montserrat',sans-
 .loc-over .lo-tile .cap{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;background:linear-gradient(180deg,transparent,rgba(8,31,68,0.82));color:#fff;font-family:'Montserrat';font-weight:600;font-size:10px;letter-spacing:0.06em}
 .loc-over .lo-side{width:270px;display:flex;flex-direction:column;gap:14px;padding:6px 0;justify-content:center}
 .loc-over .lo-side .lo-eyebrow{font-family:'Montserrat';font-weight:700;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:var(--cyan)}
-.loc-over .lo-side .lo-title{font-family:'Montserrat';font-weight:800;font-size:20px;color:var(--navy);line-height:1.25}
+.loc-over .lo-side .lo-title{font-family:'Montserrat';font-weight:800;font-size:20px;color:var(--navy);line-height:1.25;overflow-wrap:anywhere;word-break:break-word;hyphens:auto}
 .loc-over .lo-side .lo-rule{width:36px;height:2px;background:var(--cyan)}
 .loc-over .lo-side .lo-addr{font-size:13px;color:#111;line-height:1.45}
 .loc-over .lo-side .lo-link{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;
@@ -373,7 +373,7 @@ html,body{width:1123px;background:#fff;color:#111;font-family:'Montserrat',sans-
   position:relative;width:56%;height:95%;background:#eef2f6;border-radius:6px;box-shadow:0 4px 18px rgba(0,0,0,0.1);overflow:hidden;
 }
 .locatie .info{flex:1;padding-right:20px;max-width:400px}
-.locatie .info .l-title{font-family:'Montserrat';font-weight:800;font-size:20px;color:var(--navy);line-height:1.3;padding-bottom:18px;border-bottom:1px solid var(--border);margin-bottom:20px}
+.locatie .info .l-title{font-family:'Montserrat';font-weight:800;font-size:20px;color:var(--navy);line-height:1.3;padding-bottom:18px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-wrap:anywhere;word-break:break-word;hyphens:auto}
 .locatie .info .l-link{display:block;color:var(--cyan);font-family:'Montserrat';font-weight:700;font-size:19px;text-decoration:underline;margin-bottom:20px;line-height:1.3}
 .locatie .info .l-rule{height:1px;background:var(--border);margin-bottom:20px}
 .locatie .info .l-cadastral{margin-top:4px}
@@ -716,6 +716,16 @@ window.loadLongTeaser = function(data, brandName){
   // header meta line so the asset is still identifiable without repeating the
   // full title on every page.
   const shortLoc = (loc || (title.split(/[\:–—]/)[0] || '').trim()).slice(0, 50);
+
+  // Editable + deletable title for the Location & Aerial pages. A present string
+  // (loc_title / aerial_title) wins verbatim — an empty string hides the title
+  // (the page keeps its section label). When absent, auto-derive from a real
+  // place (loc) or the address — NEVER the internal document name (e.g.
+  // "ASSET - DataSheet - #1X+6_MIVH_ANT - NL"), which used to overflow and clip.
+  const _autoPlace    = (loc || address || '').trim();
+  const _resolveTitle = (ov) => (typeof ov === 'string' ? ov.trim() : _autoPlace);
+  const locTitle      = _resolveTitle(data.loc_title);
+  const aerialTitle   = _resolveTitle(data.aerial_title);
 
   function header(activeTab, sectionLabel, showTitle){
     const tab = (key, label) => {
@@ -1082,7 +1092,7 @@ window.loadLongTeaser = function(data, brandName){
         </div>
         <div class="lo-side">
           <div class="lo-eyebrow">${esc(SL.locatie)}</div>
-          <div class="lo-title">${esc(shortLoc || name || title)}</div>
+          ${locTitle ? `<div class="lo-title">${esc(locTitle)}</div>` : ''}
           <div class="lo-rule"></div>
           ${data.address?`<div class="lo-addr">${esc(data.address)}</div>`:''}
           ${(rootMaps&&rootMaps!=='#')?`<a class="lo-link" href="${esc(rootMaps)}" target="_blank">${esc(mapLinkTxt)}</a>`:''}
@@ -1641,7 +1651,7 @@ window.loadLongTeaser = function(data, brandName){
       <div class="locatie">
         <div class="map">${streetMap?`<img class="fill-img" src="${esc(fileUrl(streetMap))}" alt="">`:''}</div>
         <div class="info">
-          <div class="l-title">${esc(shortLoc || name || title)}</div>
+          ${locTitle ? `<div class="l-title">${esc(locTitle)}</div>` : ''}
           <div class="l-rule"></div>
           <a class="l-link" href="${esc(mapsUrl)}" target="_blank">${esc(mapLinkTxt)}</a>
           <div class="l-rule"></div>
@@ -1672,7 +1682,7 @@ window.loadLongTeaser = function(data, brandName){
           </div>
           <div class="a-side">
             <div class="a-eyebrow">${esc(aerialLabel)}</div>
-            <div class="a-title">${esc(shortLoc || name || title)}</div>
+            ${aerialTitle ? `<div class="a-title">${esc(aerialTitle)}</div>` : ''}
             <div class="a-rule"></div>
             ${address ? `<div class="a-row"><div class="k">${esc(addrLbl)}</div><div class="v">${esc(address)}</div></div>` : ''}
             ${ref     ? `<div class="a-row"><div class="k">Référence</div><div class="v">${esc(ref)}</div></div>` : ''}
