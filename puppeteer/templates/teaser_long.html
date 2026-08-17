@@ -722,8 +722,13 @@ window.loadLongTeaser = function(data, brandName){
   // (the page keeps its section label). When absent, auto-derive from a real
   // place (loc) or the address — NEVER the internal document name (e.g.
   // "ASSET - DataSheet - #1X+6_MIVH_ANT - NL"), which used to overflow and clip.
-  const _autoPlace    = (loc || address || '').trim();
-  const _resolveTitle = (ov) => (typeof ov === 'string' ? ov.trim() : _autoPlace);
+  // Auto title = the real place/city ONLY (from a "City: name" style title) —
+  // never the address, which is already shown as its own ADRES row on the Aerial
+  // page (and as lo-addr on the shared Location page). Falling back to the address
+  // duplicated it. Empty when there is no place → title hidden; the user can type
+  // a custom one via loc_title / aerial_title in the editor.
+  const _placeAuto    = (loc || '').trim();
+  const _resolveTitle = (ov) => (typeof ov === 'string' ? ov.trim() : _placeAuto);
   const locTitle      = _resolveTitle(data.loc_title);
   const aerialTitle   = _resolveTitle(data.aerial_title);
 

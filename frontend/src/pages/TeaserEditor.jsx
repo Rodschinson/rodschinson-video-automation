@@ -42,10 +42,12 @@ const TEXT_FIELDS_BY_SECTION = {
     ['payment_terms', 'Payment terms / transaction structuring'],
   ],
   localisation: [
+    ['loc_title',       'Location page title (empty = hidden; auto = city if known)'],
     ['google_maps_url', 'Google Maps link (https://) — where the link opens'],
     ['map_link_text',   '"View on Maps" link text'],
   ],
   aerial: [
+    ['aerial_title',     'Aerial page title (empty = hidden; auto = city if known)'],
     ['aerial_view',      'Aerial image path (file://)'],
     ['boundary_caption', 'Boundary caption'],
     ['tab_aerial',       'Tab label'],
