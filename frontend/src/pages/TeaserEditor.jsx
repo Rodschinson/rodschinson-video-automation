@@ -334,6 +334,14 @@ export default function TeaserEditor() {
     const cur = ((Number(data.plan_rotation?.[url]) || 0) % 360 + 360) % 360
     setField('plan_rotation', { ...(data.plan_rotation || {}), [url]: (cur + 90) % 360 })
   }
+  // Cycle rotation for gallery photos and the aerial image (keyed by image URL).
+  // On the aerial page the render rotates the parcel-outline overlay with the
+  // image so the red boundary stays aligned.
+  const imgRot = (url) => ((Number(data.image_rotation?.[url]) || 0) % 360 + 360) % 360
+  const cycleImageRotation = (url) => {
+    if (!url) return
+    setField('image_rotation', { ...(data.image_rotation || {}), [url]: (imgRot(url) + 90) % 360 })
+  }
 
   // ── Save ────────────────────────────────────────────────────────────────
   const handleSave = async ({ thenRegenerate = true } = {}) => {
@@ -1083,6 +1091,9 @@ export default function TeaserEditor() {
                             {typeof url === 'string' && <FocusThumb url={url} focus={a.photo_focus?.[url]} onFocus={xy => setAssetPhotoFocus(idx, url, xy)} AuthImg={AuthImg} />}
                           </div>
                           <div style={{ position: 'absolute', top: 4, right: 4, display: 'flex', gap: 4 }}>
+                            {typeof url === 'string' && (
+                              <button onClick={() => cycleImageRotation(url)} title={`Rotate 90° (now ${imgRot(url)}°)`} style={{ width: 22, height: 22, borderRadius: 3, border: 'none', background: imgRot(url) ? 'var(--cs-accent)' : 'rgba(0,0,0,0.6)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><RotateCw size={12} /></button>
+                            )}
                             <button onClick={() => { if (pi === 0) return; const arr = [...photos];[arr[pi - 1], arr[pi]] = [arr[pi], arr[pi - 1]]; setAssetField(idx, 'photos', arr) }} disabled={pi === 0} title="Move left" style={{ width: 22, height: 22, borderRadius: 3, border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', cursor: pi === 0 ? 'not-allowed' : 'pointer', opacity: pi === 0 ? 0.35 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><ArrowUp size={12} /></button>
                             <button onClick={() => { if (pi >= photos.length - 1) return; const arr = [...photos];[arr[pi + 1], arr[pi]] = [arr[pi], arr[pi + 1]]; setAssetField(idx, 'photos', arr) }} disabled={pi >= photos.length - 1} title="Move right" style={{ width: 22, height: 22, borderRadius: 3, border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', cursor: pi >= photos.length - 1 ? 'not-allowed' : 'pointer', opacity: pi >= photos.length - 1 ? 0.35 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><ArrowDown size={12} /></button>
                             <button onClick={() => setAssetField(idx, 'photos', photos.filter((_, j) => j !== pi))} title="Remove" style={{ width: 22, height: 22, borderRadius: 3, border: 'none', background: 'rgba(220,38,38,0.85)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} /></button>
@@ -1105,7 +1116,12 @@ export default function TeaserEditor() {
 
                   {/* Aerial view + editable red parcel outline */}
                   <div style={{ marginBottom: 22 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, marginBottom: 8 }}>Aerial view &amp; parcel outline</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted }}>Aerial view &amp; parcel outline</div>
+                      {a.aerial_view && (
+                        <button onClick={() => cycleImageRotation(a.aerial_view)} title={`Rotate the aerial 90° (now ${imgRot(a.aerial_view)}°) — the red outline rotates with it`} style={{ padding: '5px 10px', borderRadius: 5, border: `1px solid ${border}`, background: imgRot(a.aerial_view) ? 'var(--cs-accent)' : 'transparent', color: imgRot(a.aerial_view) ? '#fff' : 'var(--cs-accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><RotateCw size={12} /> Rotate {imgRot(a.aerial_view) ? `(${imgRot(a.aerial_view)}°)` : ''}</button>
+                      )}
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
                       {imgCard('Aerial image (overrides auto)', a.aerial_view || '', () => triggerUpload({ assetIndex: idx, key: 'aerial_view' }), () => setAssetField(idx, 'aerial_view', ''))}
                     </div>
@@ -1196,7 +1212,13 @@ export default function TeaserEditor() {
           {/* Aerial parcel-outline editor (single-asset aerial section) */}
           {activeId === 'aerial' && (
             <div style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted, marginBottom: 8 }}>Parcel outline (red)</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: muted }}>Parcel outline (red)</div>
+                {data.aerial_view && (
+                  <button onClick={() => cycleImageRotation(data.aerial_view)} title={`Rotate the aerial 90° (now ${imgRot(data.aerial_view)}°) — the red outline rotates with it`} style={{ padding: '5px 10px', borderRadius: 5, border: `1px solid ${border}`, background: imgRot(data.aerial_view) ? 'var(--cs-accent)' : 'transparent', color: imgRot(data.aerial_view) ? '#fff' : 'var(--cs-accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><RotateCw size={12} /> Rotate {imgRot(data.aerial_view) ? `(${imgRot(data.aerial_view)}°)` : ''}</button>
+                )}
+              </div>
+              <div style={{ fontSize: 10, color: muted, marginBottom: 8 }}>Draw the outline on the image as shown; when rotated, both the aerial and the outline turn together in the PDF.</div>
               <BoundaryEditor imgUrl={data.aerial_view || ''} points={data.boundary} onChange={pts => setField('boundary', pts)} AuthImg={AuthImg} theme={{ border, text, muted, panel }} />
             </div>
           )}
@@ -1243,6 +1265,9 @@ export default function TeaserEditor() {
                       <div style={{ position: 'absolute', top: 4, right: 4, display: 'flex', gap: 4 }}>
                         {galleryListKey === 'plans' && (
                           <button onClick={() => cyclePlanRotation(url)} title="Rotate 90°" style={{ width: 22, height: 22, borderRadius: 3, border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><RotateCw size={12} /></button>
+                        )}
+                        {galleryListKey === 'photos' && typeof url === 'string' && (
+                          <button onClick={() => cycleImageRotation(url)} title={`Rotate 90° (now ${imgRot(url)}°)`} style={{ width: 22, height: 22, borderRadius: 3, border: 'none', background: imgRot(url) ? 'var(--cs-accent)' : 'rgba(0,0,0,0.6)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><RotateCw size={12} /></button>
                         )}
                         <button onClick={() => { if (i === 0) return; const arr = [...data[galleryListKey]]; [arr[i-1], arr[i]] = [arr[i], arr[i-1]]; setField(galleryListKey, arr) }} disabled={i === 0} title="Move left" style={{ width: 22, height: 22, borderRadius: 3, border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', cursor: i === 0 ? 'not-allowed' : 'pointer', opacity: i === 0 ? 0.35 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><ArrowUp size={12} /></button>
                         <button onClick={() => { const arr = data[galleryListKey] || []; if (i >= arr.length - 1) return; const n = [...arr]; [n[i+1], n[i]] = [n[i], n[i+1]]; setField(galleryListKey, n) }} disabled={i >= (data[galleryListKey]?.length || 0) - 1} title="Move right" style={{ width: 22, height: 22, borderRadius: 3, border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', cursor: i >= (data[galleryListKey]?.length || 0) - 1 ? 'not-allowed' : 'pointer', opacity: i >= (data[galleryListKey]?.length || 0) - 1 ? 0.35 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><ArrowDown size={12} /></button>
