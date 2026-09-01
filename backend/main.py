@@ -565,12 +565,30 @@ Each line is a complete, self-contained statement of 8 to 22 words — a polishe
 sentence or noun phrase, NOT a two-word label. No bullet glyphs, no numbering,
 no headings, no markdown, no blank lines between them.
 
-CONTENT — cover, in this order, whatever the documents support:
+CONTENT — cover, in this order, ONLY what the sources actually state:
 1. What the asset is: type, composition, number of units, overall scale.
 2. Where it sits: neighbourhood, immediate surroundings, transport, amenities.
 3. Its physical state: year built, renovations, finishes, notable features.
 4. Its occupancy: tenant profile, lease situation, vacancy.
 5. The investment rationale: what makes it worth acquiring.
+
+Skip any of these five entirely when the sources say nothing about it. A shorter
+description built only on stated facts is correct; a longer one padded with
+plausible assumptions is not.
+
+SOURCING — this is a document sent to investors, and every line commits the seller:
+- Each line must be traceable to a specific statement in the CRM description or
+  the documents. If you cannot point to where a claim comes from, drop the line.
+- NEVER state or imply occupancy, vacancy, tenant quality or rental status unless
+  a source says so explicitly. The existence of a lease or a rent figure does NOT
+  establish that the building is fully let, nor that there is no vacancy.
+- Do not describe a neighbourhood, its liquidity, its amenities or its transport
+  links beyond what the sources name. An address is not a description of an area.
+- Do not grade the asset ("core", "prime", "defensive", "premium", "rare",
+  "high-end", "institutional") unless a source uses that language itself.
+- Do not infer condition or build quality from the year of construction.
+- Where the CRM description and the documents disagree on a fact, follow the
+  documents and leave the contradicted claim out.
 
 RULES:
 - Investor-grade professional register. No hype, no marketing superlatives.
