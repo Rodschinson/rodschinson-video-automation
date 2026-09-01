@@ -3695,6 +3695,49 @@ def health():
     }
 
 
+@app.get("/api/health/anthropic")
+async def health_anthropic(probe: bool = False):
+    """Is the server's Anthropic key usable?
+
+    Diagnosing this from outside took hours: a missing key, a revoked key, an
+    exhausted balance and an unreadable PDF all surfaced as the same degraded
+    teaser. GET /v1/models is not billed and separates missing/revoked/valid.
+    Credit balance is only visible to an inference call, so ?probe=1 sends a
+    1-token request — a fraction of a cent, and explicit rather than implicit.
+    """
+    key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not key:
+        return {"key": "missing", "usable": False,
+                "detail": "ANTHROPIC_API_KEY is not set in this environment"}
+    headers = {"x-api-key": key, "anthropic-version": "2023-06-01",
+               "content-type": "application/json"}
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get("https://api.anthropic.com/v1/models?limit=1",
+                                 headers=headers, timeout=30)
+    except Exception as e:
+        return {"key": "unknown", "usable": False, "detail": f"could not reach the API: {e}"}
+    if r.status_code == 401:
+        return {"key": "invalid", "usable": False,
+                "detail": "the key does not exist or has been revoked"}
+    if r.status_code != 200:
+        return {"key": "unknown", "usable": False, "detail": _api_error_detail(r)}
+    if not probe:
+        return {"key": "valid", "usable": None,
+                "detail": "key authenticates; add ?probe=1 to spend one token and confirm credit"}
+    try:
+        async with httpx.AsyncClient() as client:
+            pr = await client.post("https://api.anthropic.com/v1/messages", headers=headers,
+                                   json={"model": "claude-opus-5", "max_tokens": 1,
+                                         "messages": [{"role": "user", "content": "hi"}]},
+                                   timeout=60)
+    except Exception as e:
+        return {"key": "valid", "usable": False, "detail": f"probe failed: {e}"}
+    if pr.status_code == 200:
+        return {"key": "valid", "usable": True, "detail": "inference works"}
+    return {"key": "valid", "usable": False, "detail": _api_error_detail(pr)}
+
+
 # ── Generate ───────────────────────────────────────────────────────────────────
 
 @app.post("/api/generate", status_code=202)
