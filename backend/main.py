@@ -380,6 +380,159 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _job_warn(job: dict, msg: str) -> None:
+    """Attach a human-readable warning to a job.
+
+    Every Claude call in the teaser pipeline falls back silently on failure, so
+    an expired API key, an exhausted credit balance and an unreadable PDF all
+    produced the same output: the untouched CRM description. Recording the
+    reason makes the three distinguishable from the job record.
+    """
+    job.setdefault("warnings", [])
+    if msg not in job["warnings"]:
+        job["warnings"].append(msg)
+
+
+def _api_error_detail(resp) -> str:
+    """Extract the API's own error message; it usually names the real problem."""
+    try:
+        return str(resp.json().get("error", {}).get("message", ""))[:300] or f"HTTP {resp.status_code}"
+    except Exception:
+        return f"HTTP {resp.status_code}"
+
+
+# ── Reading documents Claude has to look at ───────────────────────────────────
+# pypdf/PyMuPDF read a text layer. A scanned dossier has none, and an image
+# document has none by definition — both used to sail through as "extracted"
+# with zero characters. Claude reads a PDF natively (vision included), so hand
+# it the file itself when the parsers come up empty.
+_VISION_MAX_PDF_PAGES = 40          # cost/latency guard, not an API limit
+_VISION_MAX_BYTES = 20 * 1024 * 1024  # base64 inflates ~33%; API caps requests at 32 MB
+_VISION_MAX_IMAGE_PX = 1568         # longest side; larger buys no accuracy
+
+
+def _prepare_pdf_for_vision(raw: bytes, name: str, job_id: str):
+    """Trim a PDF to something the API will accept, or None if it cannot be."""
+    if len(raw) <= _VISION_MAX_BYTES:
+        try:
+            import fitz as _fitz
+            with _fitz.open(stream=raw, filetype="pdf") as d:
+                if len(d) <= _VISION_MAX_PDF_PAGES:
+                    return raw
+        except Exception:
+            return raw if len(raw) <= _VISION_MAX_BYTES else None
+    try:
+        import fitz as _fitz
+        with _fitz.open(stream=raw, filetype="pdf") as d:
+            keep = min(len(d), _VISION_MAX_PDF_PAGES)
+            out = _fitz.open()
+            out.insert_pdf(d, from_page=0, to_page=keep - 1)
+            trimmed = out.tobytes(garbage=4, deflate=True)
+            out.close()
+        if len(trimmed) > _VISION_MAX_BYTES:
+            log.warning("[%s] %s still %.1f MB after trimming to %d pages — skipping vision read",
+                        job_id[:8], name, len(trimmed) / 1048576, keep)
+            return None
+        log.info("[%s] %s trimmed to %d pages (%.1f MB) for vision read",
+                 job_id[:8], name, keep, len(trimmed) / 1048576)
+        return trimmed
+    except Exception as e:
+        log.warning("[%s] Could not trim %s for vision read: %s", job_id[:8], name, e)
+        return None
+
+
+def _prepare_image_for_vision(raw: bytes, name: str, job_id: str):
+    """Downscale an image to the size the API reads best. Returns (bytes, media_type)."""
+    try:
+        from PIL import Image as _Image
+        import io as _io
+        img = _Image.open(_io.BytesIO(raw))
+        img = img.convert("RGB")
+        if max(img.size) > _VISION_MAX_IMAGE_PX:
+            ratio = _VISION_MAX_IMAGE_PX / max(img.size)
+            img = img.resize((max(1, int(img.width * ratio)), max(1, int(img.height * ratio))),
+                             _Image.LANCZOS)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        return buf.getvalue(), "image/jpeg"
+    except Exception as e:
+        log.warning("[%s] Could not prepare image %s for vision read: %s", job_id[:8], name, e)
+        return None
+
+
+_VISION_READ_PROMPT = (
+    "Transcribe this document completely and faithfully.\n\n"
+    "- Output every piece of text you can read: headings, paragraphs, labels, captions, "
+    "figures, footnotes.\n"
+    "- Render tables as plain text, one row per line, cells separated by ' | ', keeping the "
+    "header row.\n"
+    "- Copy every number EXACTLY as printed, to the cent/unit, with its currency symbol, "
+    "separators and percent sign. Never round, approximate or reformat a figure.\n"
+    "- Keep the reading order of the pages.\n"
+    "- If a passage is genuinely illegible, write [illegible] rather than guessing.\n"
+    "- Do not summarise, comment or add anything of your own. Return the transcription only."
+)
+
+
+async def _read_document_natively(api_key: str, raw: bytes, media_type: str,
+                                  name: str, job_id: str, job: dict = None) -> str:
+    """Read a document that has no text layer by sending the file to Claude.
+
+    PDFs go as a document block (Claude reads scanned pages); images as an image
+    block. Returns "" on any failure — the caller treats that as "unreadable".
+    """
+    if not api_key or not raw:
+        return ""
+    if media_type == "application/pdf":
+        payload = _prepare_pdf_for_vision(raw, name, job_id)
+        if not payload:
+            return ""
+        block = {"type": "document",
+                 "source": {"type": "base64", "media_type": "application/pdf",
+                            "data": base64.standard_b64encode(payload).decode()}}
+    else:
+        prepared = _prepare_image_for_vision(raw, name, job_id)
+        if not prepared:
+            return ""
+        data, mt = prepared
+        block = {"type": "image",
+                 "source": {"type": "base64", "media_type": mt,
+                            "data": base64.standard_b64encode(data).decode()}}
+    try:
+        async with _claude_semaphore:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                             "content-type": "application/json"},
+                    # Transcription is mechanical — low effort keeps the cost of
+                    # reading a 40-page scan proportionate to what it returns.
+                    json={"model": "claude-opus-5", "max_tokens": 16000,
+                          "output_config": {"effort": "low"},
+                          "messages": [{"role": "user", "content": [
+                              block, {"type": "text", "text": _VISION_READ_PROMPT}]}]},
+                    timeout=300,
+                )
+        if r.status_code != 200:
+            detail = _api_error_detail(r)
+            log.warning("[%s] Vision read of %s failed: HTTP %s — %s",
+                        job_id[:8], name, r.status_code, detail)
+            if job is not None:
+                _job_warn(job, f"Could not read '{name}' with Claude: {detail}")
+            return ""
+        body = r.json()
+        if body.get("stop_reason") == "refusal":
+            log.warning("[%s] Vision read of %s was refused by the model", job_id[:8], name)
+            return ""
+        text = "".join(b.get("text", "") for b in body.get("content", [])
+                       if b.get("type") == "text").strip()
+        log.info("[%s] Vision read of %s returned %d chars", job_id[:8], name, len(text))
+        return text
+    except Exception as e:
+        log.warning("[%s] Vision read of %s failed: %s", job_id[:8], name, e)
+        return ""
+
+
 def _teaser_description_prompt(crm_desc: str, docs_text: str, ctx: dict, lang_label: str) -> str:
     """Prompt that turns the source dossier into the teaser's description lines.
 
@@ -463,7 +616,8 @@ def _clean_description_lines(raw: str, max_lines: int = MAX_DESC_LINES) -> list[
 
 
 async def _compose_teaser_description(api_key: str, crm_desc: str, docs_text: str,
-                                      ctx: dict, lang_label: str, job_id: str) -> str:
+                                      ctx: dict, lang_label: str, job_id: str,
+                                      job: dict = None) -> str:
     """Return the dossier-derived description, or the CRM one if anything fails."""
     if not api_key or not (docs_text or "").strip():
         return crm_desc
@@ -480,8 +634,11 @@ async def _compose_teaser_description(api_key: str, crm_desc: str, docs_text: st
                     timeout=180,
                 )
         if r.status_code != 200:
-            log.warning("[%s] Description composition HTTP %s — keeping CRM description",
-                        job_id[:8], r.status_code)
+            detail = _api_error_detail(r)
+            log.warning("[%s] Description composition failed: HTTP %s — %s",
+                        job_id[:8], r.status_code, detail)
+            if job is not None:
+                _job_warn(job, f"Description not rewritten from the documents: {detail}")
             return crm_desc
         lines = _clean_description_lines((r.json()["content"][0]["text"] or "").strip())
         # Fewer than 3 usable lines means the model added nothing; keep the source.
@@ -495,6 +652,8 @@ async def _compose_teaser_description(api_key: str, crm_desc: str, docs_text: st
         return out
     except Exception as e:
         log.warning("[%s] Description composition failed: %s — keeping CRM description", job_id[:8], e)
+        if job is not None:
+            _job_warn(job, f"Description not rewritten from the documents: {e}")
         return crm_desc
 
 
@@ -2772,6 +2931,8 @@ RULES:
             # Extract text from source documents (PDF, DOCX, images) and use Claude
             # to fill in any missing fields the user didn't provide
             documents = data.get("documents", [])
+            # Needed inside the loop below (vision read) as well as after it.
+            api_key = os.getenv("ANTHROPIC_API_KEY", "")
             extracted_text_chunks = []
             # Per-document extraction audit — surfaced on the job so an empty
             # teaser can be traced to the document that gave nothing.
@@ -2834,23 +2995,34 @@ RULES:
                         elif "image/" in header:
                             # For images, we'll pass directly to Claude vision below
                             text = f"[IMAGE:{name}]{data_uri}"
-                        _chars = len(text.strip()) if not text.startswith("[IMAGE:") else 0
+                        _is_image = text.startswith("[IMAGE:")
+                        _chars = 0 if _is_image else len(text.strip())
+                        _how = "text-layer"
+                        # No text layer (scan) or an image document: let Claude read
+                        # the file itself rather than reporting a silent success.
+                        if _chars < 200 and (_is_image or lname.endswith(".pdf") or "pdf" in header):
+                            _mt = "application/pdf" if not _is_image else (
+                                header.split(":", 1)[-1].split(";")[0] or "image/jpeg")
+                            _job_update(job, status="running",
+                                        step=f"Reading {name} (no text layer)", progress=22)
+                            await _save_job(job)
+                            _seen = await _read_document_natively(api_key, raw_bytes, _mt, name, job_id, job)
+                            if len(_seen.strip()) > _chars:
+                                text, _chars, _how = _seen, len(_seen.strip()), "vision"
+                                _is_image = False
                         doc_extraction_report.append({
                             "name": name, "kb": round(len(raw_bytes) / 1024, 1),
-                            "chars": _chars,
-                            "kind": "image" if text.startswith("[IMAGE:") else "text",
+                            "chars": _chars, "read_via": _how,
                         })
-                        if text.startswith("[IMAGE:"):
-                            log.warning("[%s] Document '%s' is an image — image documents are not "
-                                        "read by the extractor, nothing will be extracted from it",
-                                        job_id[:8], name)
-                        elif _chars == 0:
-                            log.warning("[%s] Document '%s' (%.1f KB) yielded 0 characters — scanned/"
-                                        "image-only PDF or unsupported format; nothing to extract",
+                        if _chars == 0:
+                            log.warning("[%s] Document '%s' (%.1f KB) yielded 0 characters — "
+                                        "unreadable or unsupported format; nothing to extract",
                                         job_id[:8], name, len(raw_bytes) / 1024)
                         else:
-                            log.info("[%s] Document '%s' (%.1f KB) -> %d chars extracted",
-                                     job_id[:8], name, len(raw_bytes) / 1024, _chars)
+                            log.info("[%s] Document '%s' (%.1f KB) -> %d chars extracted via %s",
+                                     job_id[:8], name, len(raw_bytes) / 1024, _chars, _how)
+                        if _is_image:
+                            text = ""   # unread image: never pass a data URI to the extractor
                         if text:
                             # Per-document cap: 40k chars keeps each long PDF largely intact
                             # while preventing one rogue doc from drowning the others.
@@ -2863,7 +3035,6 @@ RULES:
             extracted_fields: dict = {}
             # Always defined (also used by the title/description translation below,
             # which runs even when there are no source documents to extract from).
-            api_key = os.getenv("ANTHROPIC_API_KEY", "")
             combined_text = ""
             if extracted_text_chunks:
                 _job_update(job, status="running", step="AI analyzing documents", progress=30)
@@ -2972,7 +3143,12 @@ EXTRACTION RULES:
                                       "messages": [{"role": "user", "content": extract_prompt}]},
                                 timeout=180,
                             )
-                            if resp.status_code == 200:
+                            if resp.status_code != 200:
+                                _detail = _api_error_detail(resp)
+                                log.warning("[%s] Document extraction failed: HTTP %s — %s",
+                                            job_id[:8], resp.status_code, _detail)
+                                _job_warn(job, f"Document data could not be extracted: {_detail}")
+                            else:
                                 extracted_fields = _parse_json(resp.json()["content"][0]["text"]) or {}
                                 log.info("[%s] Extracted: addr=%s, surfaces=%d, bullets=%d",
                                          job_id[:8],
@@ -3005,11 +3181,15 @@ EXTRACTION RULES:
                 _composed = await _compose_teaser_description(
                     api_key, desc, combined_text, property_data,
                     {"EN": "English", "FR": "French", "NL": "Dutch"}.get(language, "English"),
-                    job_id,
+                    job_id, job,
                 )
                 if _composed and _composed != desc:
                     desc = _composed
                     desc_from_docs = True
+            # Recorded on the job so "the description is still the Odoo line" is
+            # answerable from the job record instead of by reading the PDF.
+            job["description_source"] = "documents" if desc_from_docs else "crm"
+            await _save_job(job)
 
             # ── Merge: user-provided wins, extracted fills gaps and enriches ──
             merged_address = extra.get("address") or (extracted_fields.get("address") or "")
