@@ -371,6 +371,9 @@ _render_semaphore = asyncio.Semaphore(2)
 # Limit simultaneous Claude API calls to reduce 529 overload errors during bulk runs.
 _claude_semaphore = asyncio.Semaphore(2)
 
+# Process start time — lets /api/health show whether a restart actually happened.
+_STARTED_AT = datetime.now(timezone.utc).isoformat()
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _now() -> str:
@@ -3493,7 +3496,23 @@ def hello():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    """Health probe + deploy marker.
+
+    Without the running commit here there is no way to tell "the fix is wrong"
+    from "the fix was never deployed" — the two look identical from the UI.
+    Railway injects RAILWAY_GIT_COMMIT_SHA at runtime; the image has no .git.
+    """
+    return {
+        "status": "ok",
+        "commit": (os.getenv("RAILWAY_GIT_COMMIT_SHA") or "unknown")[:7],
+        "deployed_at": os.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
+        "started_at": _STARTED_AT,
+        # Feature flags a client can assert on, so a stale deploy is obvious.
+        "features": {
+            "description_from_documents": True,
+            "doc_extraction_audit": True,
+        },
+    }
 
 
 # ── Generate ───────────────────────────────────────────────────────────────────
