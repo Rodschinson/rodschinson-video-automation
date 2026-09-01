@@ -377,6 +377,124 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _teaser_description_prompt(crm_desc: str, docs_text: str, ctx: dict, lang_label: str) -> str:
+    """Prompt that turns the source dossier into the teaser's description lines.
+
+    The CRM description is usually one short marketing line; the uploaded dossier
+    holds the real substance. Output is a list of concise lines, not paragraphs:
+    the Activa description box is a fixed-height flex area with overflow:hidden,
+    so prose paragraphs get clipped instead of flowing. Figures already have their
+    own Details tables, so these lines carry the narrative, not the numbers.
+    """
+    return f"""You are a real estate analyst writing the DESCRIPTION section of a professional property teaser.
+
+PROPERTY CONTEXT (from CRM):
+- Title: {ctx.get("title", "")}
+- Reference: {ctx.get("reference", "")}
+- Asset Type: {ctx.get("asset_label", ctx.get("asset_type", ""))}
+- Asking Price: {ctx.get("price", "")}
+
+CURRENT CRM DESCRIPTION (the starting point — usually short and incomplete):
+{crm_desc or "(empty)"}
+
+SOURCE DOCUMENTS:
+{docs_text}
+
+TASK: Write the teaser description by EXPANDING the CRM description with everything
+substantive the source documents add. The CRM text is the base: keep what it says
+and keep its angle, then build the full description around it.
+
+FORMAT: {MIN_DESC_LINES} to {MAX_DESC_LINES} lines, ONE fact or idea per line, separated by newlines.
+Each line is a complete, self-contained statement of 8 to 22 words — a polished
+sentence or noun phrase, NOT a two-word label. No bullet glyphs, no numbering,
+no headings, no markdown, no blank lines between them.
+
+CONTENT — cover, in this order, whatever the documents support:
+1. What the asset is: type, composition, number of units, overall scale.
+2. Where it sits: neighbourhood, immediate surroundings, transport, amenities.
+3. Its physical state: year built, renovations, finishes, notable features.
+4. Its occupancy: tenant profile, lease situation, vacancy.
+5. The investment rationale: what makes it worth acquiring.
+
+RULES:
+- Investor-grade professional register. No hype, no marketing superlatives.
+- The teaser already prints separate tables for surfaces, rental income, financial
+  summary, technical specs, lease terms and valuation. Do NOT re-list those tables
+  row by row. Cite a figure only when the line needs it to make sense.
+- EXACT FIGURES ONLY: any number you do cite must be copied verbatim from the
+  documents, to the cent/unit as written. NEVER approximate, round, or prefix a
+  figure with "±", "+/-", "ca.", "circa", "approximately", "about", "~" or "around".
+- Use ONLY facts present in the CRM description or the documents. Invent nothing.
+- Do NOT repeat the property title or the reference code.
+- Do NOT include internal reference numbers, owner names, internal IDs or
+  preparation dates.
+- Write in {lang_label}. Keep proper nouns, place names and reference codes as written.
+- Return ONLY the lines: no preamble, no quotes, no code fences."""
+
+
+# The Activa description box is fixed-height with overflow:hidden and switches to
+# two columns past 8 lines. Past ~16 lines the tail is clipped, so cap here rather
+# than let the page silently swallow content.
+MIN_DESC_LINES = 10
+MAX_DESC_LINES = 16
+
+
+def _clean_description_lines(raw: str, max_lines: int = MAX_DESC_LINES) -> list[str]:
+    """Split a composed description into the bullet lines the template renders."""
+    lines = []
+    seen = set()
+    for part in re.split(r"\s*•\s*|\n+", raw or ""):
+        s = part.strip()
+        # Strip any list marker the model added back in despite the instructions.
+        s = re.sub(r"^\s*(?:[-*·—–]|\d+[.)])\s*", "", s).strip()
+        if len(s) < 12:          # labels/fragments, not statements
+            continue
+        key = s.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        lines.append(s)
+        if len(lines) >= max_lines:
+            break
+    return lines
+
+
+async def _compose_teaser_description(api_key: str, crm_desc: str, docs_text: str,
+                                      ctx: dict, lang_label: str, job_id: str) -> str:
+    """Return the dossier-derived description, or the CRM one if anything fails."""
+    if not api_key or not (docs_text or "").strip():
+        return crm_desc
+    try:
+        prompt = _teaser_description_prompt(crm_desc, docs_text, ctx, lang_label)
+        async with _claude_semaphore:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                             "content-type": "application/json"},
+                    json={"model": "claude-sonnet-4-6", "max_tokens": 3000,
+                          "messages": [{"role": "user", "content": prompt}]},
+                    timeout=180,
+                )
+        if r.status_code != 200:
+            log.warning("[%s] Description composition HTTP %s — keeping CRM description",
+                        job_id[:8], r.status_code)
+            return crm_desc
+        lines = _clean_description_lines((r.json()["content"][0]["text"] or "").strip())
+        # Fewer than 3 usable lines means the model added nothing; keep the source.
+        if len(lines) < 3:
+            log.warning("[%s] Composed description had %d usable lines — keeping CRM description",
+                        job_id[:8], len(lines))
+            return crm_desc
+        out = " • ".join(lines)
+        log.info("[%s] Composed description from documents: %d lines / %d chars (CRM was %d)",
+                 job_id[:8], len(lines), len(out), len((crm_desc or "").strip()))
+        return out
+    except Exception as e:
+        log.warning("[%s] Description composition failed: %s — keeping CRM description", job_id[:8], e)
+        return crm_desc
+
+
 # ── Atomic JSON writes ──────────────────────────────────────────────────────────
 # Plain open(path,"w") truncates first, so a crash/restart or two concurrent
 # writers leave an empty/partial file → corrupt JSON (e.g. library.json). Write to
@@ -2652,6 +2770,9 @@ RULES:
             # to fill in any missing fields the user didn't provide
             documents = data.get("documents", [])
             extracted_text_chunks = []
+            # Per-document extraction audit — surfaced on the job so an empty
+            # teaser can be traced to the document that gave nothing.
+            doc_extraction_report: list[dict] = []
             if documents:
                 _job_update(job, status="running", step=f"Extracting data from {len(documents)} document(s)", progress=20)
                 await _save_job(job)
@@ -2673,14 +2794,36 @@ RULES:
                                 text = "\n".join((p.extract_text() or "") for p in reader.pages)
                             except Exception as e:
                                 log.warning("[%s] PDF extract failed for %s: %s", job_id[:8], name, e)
+                            # pypdf returns "" for PDFs whose text sits in vector/CID
+                            # streams it cannot map. PyMuPDF reads many of those, so
+                            # retry before declaring the document unreadable.
+                            if len(text.strip()) < 200:
+                                try:
+                                    import fitz as _fitz
+                                    with _fitz.open(stream=raw_bytes, filetype="pdf") as _d:
+                                        _alt = "\n".join(pg.get_text() for pg in _d)
+                                    if len(_alt.strip()) > len(text.strip()):
+                                        log.info("[%s] %s: pypdf gave %d chars, PyMuPDF gave %d — using PyMuPDF",
+                                                 job_id[:8], name, len(text.strip()), len(_alt.strip()))
+                                        text = _alt
+                                except Exception as e:
+                                    log.warning("[%s] PyMuPDF fallback failed for %s: %s", job_id[:8], name, e)
                         elif lname.endswith(".docx") or "wordprocessingml" in header:
                             try:
                                 import docx as _docx, io as _io
                                 d = _docx.Document(_io.BytesIO(raw_bytes))
-                                text = "\n".join(p.text for p in d.paragraphs if p.text.strip())
+                                # Paragraphs alone drop every table cell — property
+                                # dossiers put most figures in Word tables.
+                                _parts = [p.text for p in d.paragraphs if p.text.strip()]
+                                for _t in d.tables:
+                                    for _row in _t.rows:
+                                        _cells = [c.text.strip() for c in _row.cells if c.text.strip()]
+                                        if _cells:
+                                            _parts.append(" | ".join(_cells))
+                                text = "\n".join(_parts)
                             except Exception as e:
                                 log.warning("[%s] DOCX extract failed for %s: %s", job_id[:8], name, e)
-                        elif lname.endswith(".txt") or "text/plain" in header:
+                        elif lname.endswith(".txt") or lname.endswith(".md") or "text/plain" in header:
                             try:
                                 text = raw_bytes.decode("utf-8", errors="ignore")
                             except Exception:
@@ -2688,6 +2831,23 @@ RULES:
                         elif "image/" in header:
                             # For images, we'll pass directly to Claude vision below
                             text = f"[IMAGE:{name}]{data_uri}"
+                        _chars = len(text.strip()) if not text.startswith("[IMAGE:") else 0
+                        doc_extraction_report.append({
+                            "name": name, "kb": round(len(raw_bytes) / 1024, 1),
+                            "chars": _chars,
+                            "kind": "image" if text.startswith("[IMAGE:") else "text",
+                        })
+                        if text.startswith("[IMAGE:"):
+                            log.warning("[%s] Document '%s' is an image — image documents are not "
+                                        "read by the extractor, nothing will be extracted from it",
+                                        job_id[:8], name)
+                        elif _chars == 0:
+                            log.warning("[%s] Document '%s' (%.1f KB) yielded 0 characters — scanned/"
+                                        "image-only PDF or unsupported format; nothing to extract",
+                                        job_id[:8], name, len(raw_bytes) / 1024)
+                        else:
+                            log.info("[%s] Document '%s' (%.1f KB) -> %d chars extracted",
+                                     job_id[:8], name, len(raw_bytes) / 1024, _chars)
                         if text:
                             # Per-document cap: 40k chars keeps each long PDF largely intact
                             # while preventing one rogue doc from drowning the others.
@@ -2701,6 +2861,7 @@ RULES:
             # Always defined (also used by the title/description translation below,
             # which runs even when there are no source documents to extract from).
             api_key = os.getenv("ANTHROPIC_API_KEY", "")
+            combined_text = ""
             if extracted_text_chunks:
                 _job_update(job, status="running", step="AI analyzing documents", progress=30)
                 await _save_job(job)
@@ -2817,6 +2978,35 @@ EXTRACTION RULES:
                                          len(extracted_fields.get("extra_bullets") or []))
                 except Exception as e:
                     log.warning("[%s] Document extraction failed: %s", job_id[:8], e)
+
+            if doc_extraction_report:
+                # Visible in the job JSON (and the Library detail view) so "the doc
+                # was ignored" can be told apart from "the doc was unreadable".
+                job["doc_extraction"] = doc_extraction_report
+                _unreadable = [d["name"] for d in doc_extraction_report if d["chars"] == 0]
+                if _unreadable:
+                    job["doc_extraction_warning"] = (
+                        "No text could be read from: " + ", ".join(_unreadable)
+                        + " (scanned/image-only PDF, image file, or unsupported format)"
+                    )
+                    log.warning("[%s] %s", job_id[:8], job["doc_extraction_warning"])
+                await _save_job(job)
+
+            # The CRM description is a one-liner; the dossier is where the substance
+            # is. Rewrite the description from both so the uploaded document actually
+            # reaches the teaser instead of only feeding the Details tables.
+            desc_from_docs = False
+            if combined_text.strip():
+                _job_update(job, status="running", step="Writing description from documents", progress=35)
+                await _save_job(job)
+                _composed = await _compose_teaser_description(
+                    api_key, desc, combined_text, property_data,
+                    {"EN": "English", "FR": "French", "NL": "Dutch"}.get(language, "English"),
+                    job_id,
+                )
+                if _composed and _composed != desc:
+                    desc = _composed
+                    desc_from_docs = True
 
             # ── Merge: user-provided wins, extracted fills gaps and enriches ──
             merged_address = extra.get("address") or (extracted_fields.get("address") or "")
@@ -2952,7 +3142,10 @@ EXTRACTION RULES:
                     log.warning("[%s] translation skipped: %s", job_id[:8], _te)
                 return text
 
-            desc = await _translate(desc)
+            # A composed description was already written in the target language;
+            # re-translating it only risks drifting the figures.
+            if not desc_from_docs:
+                desc = await _translate(desc)
             _title_nl = await _translate(_src_title)
 
             teaser_data = {
