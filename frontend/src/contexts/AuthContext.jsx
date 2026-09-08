@@ -45,6 +45,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { verify(token) }, [])   // eslint-disable-line
 
+  // apiFetch raises this when any call comes back 401, so a session that
+  // expired mid-use returns to the login screen instead of failing whatever
+  // the user was doing with an opaque error.
+  useEffect(() => {
+    const onUnauthorized = () => { setToken(null); setUsername(null) }
+    window.addEventListener('cs:unauthorized', onUnauthorized)
+    return () => window.removeEventListener('cs:unauthorized', onUnauthorized)
+  }, [])
+
   const login = async (usernameInput, password) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',

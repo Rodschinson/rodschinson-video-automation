@@ -17,18 +17,27 @@ const _directRoute = (url) =>
   url === '/api/generate-template' ||
   url.includes('/translate-copy')
 
-export function apiFetch(url, opts = {}) {
+export async function apiFetch(url, opts = {}) {
   const token = localStorage.getItem('cs_auth_token')
   // Send heavy/long requests direct to the backend in production; in local dev
   // keep them relative so the Vite proxy hits the local API.
   const finalUrl = (!_isLocal && _directRoute(url)) ? BACKEND_DIRECT + url : url
-  return fetch(finalUrl, {
+  const res = await fetch(finalUrl, {
     ...opts,
     headers: {
       ...(opts.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
+  // A 401 anywhere means the session is gone. No page checked for it, so an
+  // expired token surfaced as "Failed: 401" on whatever the user was doing and
+  // sent them looking for a backend fault. Drop the dead token and let the app
+  // fall back to the login screen.
+  if (res.status === 401 && !url.startsWith('/api/auth/')) {
+    localStorage.removeItem('cs_auth_token')
+    window.dispatchEvent(new CustomEvent('cs:unauthorized'))
+  }
+  return res
 }
 
 /**
