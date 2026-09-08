@@ -107,8 +107,10 @@ async def _lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Rodschinson Content Studio API", lifespan=_lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS,
-                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+# NOTE: CORS is registered at the BOTTOM of this file, after _AuthMiddleware.
+# Starlette runs the last-registered middleware first, and CORS must be the
+# outermost layer or auth's 401 short-circuit returns without CORS headers —
+# which the browser reports as "Failed to fetch" instead of "not authenticated".
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 import hmac as _hmac
@@ -319,6 +321,14 @@ class _AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 app.add_middleware(_AuthMiddleware)
+
+# Registered last => outermost => wraps EVERY response, including the 401 that
+# _AuthMiddleware returns without calling the rest of the stack. Registered
+# before the auth middleware (as it was until now), an expired token produced a
+# CORS-header-less 401 that the browser refused to expose, so the UI showed
+# "Failed to fetch" and the real cause — a stale session — stayed invisible.
+app.add_middleware(CORSMiddleware, allow_origins=ALLOWED_ORIGINS,
+                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 # ── Settings store ─────────────────────────────────────────────────────────────
 SETTINGS_FILE = OUTPUT / "settings.json"
